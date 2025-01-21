@@ -61,12 +61,13 @@ export default function AuthPage() {
         description: isLogin ? "Welcome back!" : "Let's set up your profile.",
       });
 
-      // After successful login, force a refresh of student profile
+      // After successful login, force a refresh of student profile and wait for it
       await queryClient.invalidateQueries({ queryKey: ['student'] });
+      await queryClient.ensureQueryData({ queryKey: ['student'] });
 
       // Then redirect
       if (isLogin) {
-        setLocation("/");
+        window.location.href = "/";
       } else {
         setLocation("/onboarding");
       }
