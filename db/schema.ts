@@ -89,6 +89,45 @@ export const recommendations = pgTable("recommendations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const quizzes = pgTable("quizzes", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  subject: text("subject").notNull(),
+  topic: text("topic").notNull(),
+  grade: integer("grade").notNull(),
+  difficultyLevel: integer("difficulty_level").notNull(), // 1-5 scale
+  learningStyle: text("learning_style").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const quizQuestions = pgTable("quiz_questions", {
+  id: serial("id").primaryKey(),
+  quizId: integer("quiz_id").references(() => quizzes.id).notNull(),
+  question: text("question").notNull(),
+  options: jsonb("options").$type<string[]>().notNull(),
+  correctAnswer: text("correct_answer").notNull(),
+  explanation: text("explanation").notNull(),
+  type: text("type").notNull(), // 'multiple_choice', 'true_false', 'short_answer'
+  difficultyLevel: integer("difficulty_level").notNull(), // 1-5 scale
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const studentQuizAttempts = pgTable("student_quiz_attempts", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  quizId: integer("quiz_id").references(() => quizzes.id).notNull(),
+  score: integer("score").notNull(),
+  answers: jsonb("answers").$type<Array<{
+    questionId: number;
+    answer: string;
+    isCorrect: boolean;
+    timeSpent: number; // in seconds
+  }>>().notNull(),
+  completed: boolean("completed").default(false).notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
 // Export schemas and types
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
@@ -129,3 +168,18 @@ export const insertStudentProgressSchema = createInsertSchema(studentProgress);
 export const selectStudentProgressSchema = createSelectSchema(studentProgress);
 export type StudentProgress = typeof studentProgress.$inferSelect;
 export type NewStudentProgress = typeof studentProgress.$inferInsert;
+
+export const insertQuizSchema = createInsertSchema(quizzes);
+export const selectQuizSchema = createSelectSchema(quizzes);
+export type Quiz = typeof quizzes.$inferSelect;
+export type NewQuiz = typeof quizzes.$inferInsert;
+
+export const insertQuestionSchema = createInsertSchema(quizQuestions);
+export const selectQuestionSchema = createSelectSchema(quizQuestions);
+export type QuizQuestion = typeof quizQuestions.$inferSelect;
+export type NewQuizQuestion = typeof quizQuestions.$inferInsert;
+
+export const insertAttemptSchema = createInsertSchema(studentQuizAttempts);
+export const selectAttemptSchema = createSelectSchema(studentQuizAttempts);
+export type QuizAttempt = typeof studentQuizAttempts.$inferSelect;
+export type NewQuizAttempt = typeof studentQuizAttempts.$inferInsert;
