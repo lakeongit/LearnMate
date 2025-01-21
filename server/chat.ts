@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "@db";
 import { chatMessages, users } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
+import { logError, ErrorSeverity } from "./error-logging";
 
 export async function setupChat(app: Express) {
   // Middleware to ensure user is authenticated
@@ -30,7 +31,10 @@ export async function setupChat(app: Express) {
 
       res.json(messages);
     } catch (error: any) {
-      console.error("Error fetching chat history:", error);
+      logError(error, ErrorSeverity.ERROR, {
+        userId: req.user?.id,
+        action: 'fetch_chat_history'
+      });
       res.status(500).json({ error: error.message });
     }
   });
@@ -39,7 +43,9 @@ export async function setupChat(app: Express) {
   app.post("/api/chats/:userId/messages", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
-      const { content } = req.body;
+      const { content, context } = req.body;
+
+      console.log("Processing chat message:", { userId, content, context });
 
       // Verify the user is sending their own message
       if (!req.user || req.user.id !== userId) {
@@ -66,6 +72,8 @@ export async function setupChat(app: Express) {
         })
         .returning();
 
+      console.log("User message stored:", userMessage);
+
       // Get user context for personalized responses
       const [user] = await db
         .select()
@@ -76,6 +84,13 @@ export async function setupChat(app: Express) {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
+
+      // Check for API key
+      if (!process.env.PERPLEXITY_API_KEY) {
+        throw new Error("PERPLEXITY_API_KEY is not configured");
+      }
+
+      console.log("Calling Perplexity API...");
 
       // Prepare system message based on user profile and subject
       const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${user.learningStyle || 'visual'} learning. 
@@ -88,10 +103,6 @@ Follow these guidelines:
 5. Format code blocks with proper syntax highlighting
 6. Use markdown for mathematical equations
 7. Encourage critical thinking`;
-
-      if (!process.env.PERPLEXITY_API_KEY) {
-        throw new Error("PERPLEXITY_API_KEY is not configured");
-      }
 
       // Call Perplexity API
       const response = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -111,6 +122,8 @@ Follow these guidelines:
         }),
       });
 
+      console.log("API Response status:", response.status);
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Perplexity API error:", {
@@ -122,6 +135,7 @@ Follow these guidelines:
       }
 
       const responseData = await response.json();
+      console.log("API Response data:", responseData);
 
       if (!responseData.choices?.[0]?.message?.content) {
         throw new Error("Invalid response format from API");
@@ -138,9 +152,19 @@ Follow these guidelines:
         })
         .returning();
 
-      res.json([userMessage, assistantMessage]);
+      console.log("Assistant message stored:", assistantMessage);
+
+      res.json({
+        messages: [userMessage, assistantMessage],
+        metadata: context || {}
+      });
     } catch (error: any) {
       console.error("Chat error:", error);
+      logError(error, ErrorSeverity.ERROR, {
+        userId: req.user?.id,
+        action: 'send_chat_message',
+        error: error.message
+      });
       res.status(500).json({ 
         error: "Failed to process chat message", 
         details: error.message 
