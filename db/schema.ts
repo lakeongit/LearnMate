@@ -31,7 +31,7 @@ export const learningGoals = pgTable(
     deletedAt: timestamp("deleted_at"),
   },
   (table) => ({
-    userStatusIdx: pgTable.index('learning_goals_user_status_idx', ['userId', 'status'])
+    userStatusIdx: table.index('learning_goals_user_status_idx', ['userId', 'status'])
   })
 );
 
@@ -79,7 +79,7 @@ export const contentModules = pgTable(
     modifiedBy: integer("modified_by").references(() => users.id),
   },
   (table) => ({
-    unitOrderIdx: pgTable.index('content_modules_unit_order_idx', ['unitId', 'order'])
+    unitOrderIdx: table.index('content_modules_unit_order_idx', ['unitId', 'order'])
   })
 );
 
@@ -97,8 +97,8 @@ export const chatMessages = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    userCreatedIdx: pgTable.index('chat_messages_user_id_idx', ['userId', 'createdAt']),
-    subjectIdx: pgTable.index('chat_messages_subject_idx', ['subject'])
+    userCreatedIdx: table.index('chat_messages_user_id_idx', ['userId', 'createdAt']),
+    subjectIdx: table.index('chat_messages_subject_idx', ['subject'])
   })
 );
 
