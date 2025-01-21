@@ -8,6 +8,7 @@ import Home from "@/pages/home";
 import AuthPage from "@/pages/auth-page";
 import LearningUnit from "@/pages/learning-unit";
 import AdminDashboard from "@/pages/admin/dashboard";
+import Onboarding from "@/pages/onboarding";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
@@ -21,12 +22,18 @@ interface AuthState {
 interface ProtectedRouteProps {
   component: React.ComponentType<any>;
   requireAdmin?: boolean;
+  requireProfile?: boolean;
   componentProps?: Record<string, any>;
 }
 
-function ProtectedRoute({ component: Component, requireAdmin = false, componentProps }: ProtectedRouteProps) {
+function ProtectedRoute({ 
+  component: Component, 
+  requireAdmin = false, 
+  requireProfile = true,
+  componentProps 
+}: ProtectedRouteProps) {
   const [, setLocation] = useLocation();
-  const { data: auth, isLoading, error } = useQuery<AuthState>({
+  const { data: auth, isLoading } = useQuery<AuthState>({
     queryKey: ["/api/user"],
     queryFn: async () => {
       const res = await fetch("/api/user", {
@@ -40,7 +47,6 @@ function ProtectedRoute({ component: Component, requireAdmin = false, componentP
     retry: false,
   });
 
-  // Handle loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -49,8 +55,8 @@ function ProtectedRoute({ component: Component, requireAdmin = false, componentP
     );
   }
 
-  // Handle authentication error or no user
-  if (error || !auth?.user) {
+  // Handle authentication check
+  if (!auth?.user) {
     setLocation("/auth");
     return null;
   }
@@ -58,6 +64,12 @@ function ProtectedRoute({ component: Component, requireAdmin = false, componentP
   // Check for admin role if required
   if (requireAdmin && auth.user.role !== 'admin') {
     setLocation("/");
+    return null;
+  }
+
+  // Handle profile requirement
+  if (requireProfile && !auth.student) {
+    setLocation("/onboarding");
     return null;
   }
 
@@ -77,16 +89,36 @@ function App() {
             {/* Auth page - unprotected */}
             <Route path="/auth" component={AuthPage} />
 
-            {/* Default route is the home dashboard */}
-            <Route path="/" component={() => <ProtectedRoute component={Home} />} />
+            {/* Onboarding - protected but doesn't require profile */}
+            <Route 
+              path="/onboarding" 
+              component={() => (
+                <ProtectedRoute 
+                  component={Onboarding}
+                  requireProfile={false}
+                />
+              )} 
+            />
 
-            {/* Learning unit route */}
+            {/* Home dashboard - requires complete profile */}
+            <Route 
+              path="/" 
+              component={() => (
+                <ProtectedRoute 
+                  component={Home}
+                  requireProfile={true}
+                />
+              )} 
+            />
+
+            {/* Learning unit - requires complete profile */}
             <Route 
               path="/learning/:id"
               component={({ params }) => (
                 <ProtectedRoute 
                   component={LearningUnit} 
                   componentProps={{ id: params.id }}
+                  requireProfile={true}
                 />
               )}
             />
@@ -98,6 +130,7 @@ function App() {
                 <ProtectedRoute 
                   component={AdminDashboard}
                   requireAdmin={true}
+                  requireProfile={false}
                 />
               )}
             />
