@@ -96,7 +96,8 @@ export async function setupChat(app: Express) {
 
       // Check for API key
       if (!process.env.PERPLEXITY_API_KEY) {
-        throw new Error("PERPLEXITY_API_KEY is not configured");
+        console.error("Missing PERPLEXITY_API_KEY");
+        throw new Error("AI service is not properly configured. Contact administrator.");
       }
 
       console.log("Calling Perplexity API...");

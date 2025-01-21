@@ -44,7 +44,11 @@ export function useChat(studentId: number) {
       const res = await fetch(`/api/chats/${studentId}`, {
         credentials: "include",
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("API Error:", errorText);
+        throw new Error(errorText);
+      }
       const data = await res.json();
 
       // Ensure we always have valid metadata with startTime
