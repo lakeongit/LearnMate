@@ -49,11 +49,16 @@ export async function setupChat(app: Express) {
       // Prepare system message based on user profile
       const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${user.learningStyle || 'visual'} learning. Keep explanations age-appropriate and engaging.`;
 
+      if (!process.env.PERPLEXITY_API_KEY) {
+        throw new Error("PERPLEXITY_API_KEY is not configured");
+      }
+
       // Call Perplexity API
       const response = await fetch("https://api.perplexity.ai/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
           Authorization: `Bearer ${process.env.PERPLEXITY_API_KEY}`,
         },
         body: JSON.stringify({
@@ -67,17 +72,27 @@ export async function setupChat(app: Express) {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get AI response");
+        const errorText = await response.text();
+        console.error("Perplexity API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
       }
 
-      const aiResponse = await response.json();
+      const responseData = await response.json();
+
+      if (!responseData.choices?.[0]?.message?.content) {
+        throw new Error("Invalid response format from API");
+      }
 
       // Store AI response
       const [assistantMessage] = await db
         .insert(chatMessages)
         .values({
           userId,
-          content: aiResponse.choices[0].message.content,
+          content: responseData.choices[0].message.content,
           role: 'assistant',
         })
         .returning();
@@ -87,7 +102,10 @@ export async function setupChat(app: Express) {
       });
     } catch (error: any) {
       console.error("Chat error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ 
+        error: "Failed to process chat message", 
+        details: error.message 
+      });
     }
   });
 
