@@ -145,25 +145,27 @@ export default function AuthPage() {
             <CardTitle className="text-2xl text-center">Reset Password</CardTitle>
           </CardHeader>
           <CardContent>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const email = (e.currentTarget.elements.namedItem("email") as HTMLInputElement).value;
-                handleForgotPassword(email);
-              }}
-              className="space-y-4"
-            >
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    name="email"
-                    placeholder="Enter your email"
-                    required
-                  />
-                </FormControl>
-              </FormItem>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit((data) => handleForgotPassword(data.email))}
+                className="space-y-4"
+              >
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="Enter your email"
+                          {...field}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
 
               <div className="flex gap-4">
                 <Button type="submit" className="flex-1">
