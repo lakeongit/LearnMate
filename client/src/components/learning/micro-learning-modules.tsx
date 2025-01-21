@@ -94,14 +94,14 @@ export function MicroLearningModules({ student, onSelectUnit }: MicroLearningMod
 
         <div className="flex gap-4">
           <Select
-            value={selectedSubject || ""}
-            onValueChange={(value) => setSelectedSubject(value || null)}
+            value={selectedSubject || "all"}
+            onValueChange={(value) => setSelectedSubject(value === "all" ? null : value)}
           >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select subject" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Subjects</SelectItem>
+              <SelectItem value="all">All Subjects</SelectItem>
               {subjects.map((subject) => (
                 <SelectItem key={subject} value={subject}>
                   {subject}
@@ -111,12 +111,12 @@ export function MicroLearningModules({ student, onSelectUnit }: MicroLearningMod
           </Select>
 
           <Select
-            value={selectedGradeRange?.label || ""}
-            onValueChange={(value) => {
+            value={selectedGradeRange?.label || "all"}
+            onValueChange={(value) =>
               setSelectedGradeRange(
-                gradeRanges.find((range) => range.label === value) || null
-              );
-            }}
+                value === "all" ? null : gradeRanges.find((range) => range.label === value) || null
+              )
+            }
           >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select grade range" />
