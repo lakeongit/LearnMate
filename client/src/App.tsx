@@ -12,17 +12,18 @@ import { useStudentProfile } from "@/hooks/use-student-profile";
 import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
-  component: React.ComponentType;
+  component: React.ComponentType<any>;
   requireAdmin?: boolean;
+  componentProps?: Record<string, any>;
 }
 
-function ProtectedRoute({ component: Component, requireAdmin }: ProtectedRouteProps) {
+function ProtectedRoute({ component: Component, requireAdmin, componentProps }: ProtectedRouteProps) {
   const { student, isLoading } = useStudentProfile();
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-border" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -34,46 +35,52 @@ function ProtectedRoute({ component: Component, requireAdmin }: ProtectedRoutePr
 
   return (
     <ErrorBoundary>
-      <Component />
+      <Component {...componentProps} />
     </ErrorBoundary>
   );
 }
 
 function App() {
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <ErrorBoundary>
         <div className="min-h-screen bg-background">
           <Switch>
-            {/* Default route is the dashboard */}
-            <Route path="/" component={() => <ProtectedRoute component={Home} />} />
-
-            {/* Learning unit route with params */}
-            <Route 
-              path="/learning/:id" 
-              component={({ params }) => (
-                <ProtectedRoute component={() => <LearningUnit id={params.id} />} />
-              )}
-            />
-
             {/* Auth page - unprotected */}
             <Route path="/auth" component={AuthPage} />
 
-            {/* Admin dashboard - protected and requires admin */}
+            {/* Default route is the dashboard */}
+            <Route path="/" component={() => <ProtectedRoute component={Home} />} />
+
+            {/* Learning unit route */}
             <Route 
-              path="/admin" 
-              component={() => (
-                <ProtectedRoute component={AdminDashboard} requireAdmin={true} />
+              path="/learning/:id"
+              component={({ params }) => (
+                <ProtectedRoute 
+                  component={LearningUnit} 
+                  componentProps={{ id: params.id }}
+                />
               )}
             />
 
-            {/* Catch all other routes with 404 */}
-            <Route path="/:rest*" component={NotFound} />
+            {/* Admin dashboard */}
+            <Route 
+              path="/admin"
+              component={() => (
+                <ProtectedRoute 
+                  component={AdminDashboard}
+                  requireAdmin={true}
+                />
+              )}
+            />
+
+            {/* 404 fallback */}
+            <Route component={NotFound} />
           </Switch>
         </div>
         <Toaster />
-      </QueryClientProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </QueryClientProvider>
   );
 }
 

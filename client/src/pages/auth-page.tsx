@@ -27,7 +27,6 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const form = useForm<z.infer<typeof authSchema>>({
     resolver: zodResolver(authSchema),
@@ -39,64 +38,28 @@ export default function AuthPage() {
 
   const auth = useMutation({
     mutationFn: async (data: z.infer<typeof authSchema>) => {
-      try {
-        const response = await fetch(
-          `/api/${isLogin ? "login" : "register"}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-            credentials: "include",
-          }
-        );
+      const response = await fetch(`/api/${isLogin ? "login" : "register"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
 
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("Server returned non-JSON response");
-        }
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || "Authentication failed");
-        }
-
-        return result;
-      } catch (err) {
-        if (err instanceof Error) {
-          throw new Error(err.message);
-        }
-        throw new Error("Authentication failed");
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
       }
+
+      return response.json();
     },
     onSuccess: async () => {
       toast({
         title: isLogin ? "Login successful" : "Registration successful",
-        description: isLogin ? "Welcome back!" : "Let's set up your profile.",
+        description: isLogin ? "Welcome back!" : "Account created successfully.",
       });
 
-      if (isLogin) {
-        // After successful login, force a refresh of student profile
-        try {
-          await queryClient.invalidateQueries({ queryKey: ['/api/students/me'] });
-          const student = await queryClient.fetchQuery({ 
-            queryKey: ['/api/students/me'],
-            retry: false 
-          });
-
-          if (student) {
-            setLocation("/");
-          } else {
-            setLocation("/onboarding");
-          }
-        } catch (error) {
-          // If student profile doesn't exist, redirect to onboarding
-          setLocation("/onboarding");
-        }
-      } else {
-        // For registration, always go to onboarding
-        setLocation("/onboarding");
-      }
+      // After successful auth, redirect to home
+      setLocation("/");
     },
     onError: (error) => {
       toast({
@@ -107,86 +70,9 @@ export default function AuthPage() {
     },
   });
 
-  const handleForgotPassword = async (email: string) => {
-    try {
-      const response = await fetch("/api/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      toast({
-        title: "Password Reset Email Sent",
-        description: "Please check your email for further instructions.",
-      });
-      setShowForgotPassword(false);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
   const onSubmit = (data: z.infer<typeof authSchema>) => {
     auth.mutate(data);
   };
-
-  if (showForgotPassword) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">Reset Password</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit((data) => handleForgotPassword(data.email))}
-                className="space-y-4"
-              >
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="Enter your email"
-                          {...field}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex gap-4">
-                  <Button type="submit" className="flex-1">
-                    Send Reset Link
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowForgotPassword(false)}
-                    className="flex-1"
-                  >
-                    Back to Login
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -230,16 +116,6 @@ export default function AuthPage() {
                   </FormItem>
                 )}
               />
-
-              {isLogin && (
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-primary hover:underline block w-full text-right"
-                >
-                  Forgot Password?
-                </button>
-              )}
 
               <Button
                 type="submit"
