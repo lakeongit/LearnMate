@@ -15,19 +15,25 @@ export const users = pgTable("users", {
 });
 
 // Learning goals table
-export const learningGoals = pgTable("learning_goals", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  subject: text("subject").notNull(),
-  topic: text("topic"),
-  targetDate: timestamp("target_date"),
-  status: text("status").default('active').notNull(), // active, completed, archived
-  difficulty: integer("difficulty"),
-  priority: integer("priority"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at"),
-  deletedAt: timestamp("deleted_at"),
-}).index('learning_goals_user_status_idx', ['userId', 'status']);
+export const learningGoals = pgTable(
+  "learning_goals",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").references(() => users.id).notNull(),
+    subject: text("subject").notNull(),
+    topic: text("topic"),
+    targetDate: timestamp("target_date"),
+    status: text("status").default('active').notNull(), // active, completed, archived
+    difficulty: integer("difficulty"),
+    priority: integer("priority"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at"),
+    deletedAt: timestamp("deleted_at"),
+  },
+  (table) => ({
+    userStatusIdx: pgTable.index('learning_goals_user_status_idx', ['userId', 'status'])
+  })
+);
 
 // Chat sessions for context tracking
 export const chatSessions = pgTable("chat_sessions", {
