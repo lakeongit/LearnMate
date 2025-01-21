@@ -30,19 +30,21 @@ const subjects = [
 export function ChatInterface({ user }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [selectedSubject, setSelectedSubject] = useState<string>("");
-  const { messages, sendMessage, isLoading, clearMessages } = useChat(user.id);
+  const [selectedTopic, setSelectedTopic] = useState<string>("");
+  const { messages, metadata, sendMessage, updateLearningStyle, isLoading, clearMessages } = useChat(user.id);
   const { toast } = useToast();
   const [studyTimer, setStudyTimer] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
-      const messageWithContext = selectedSubject 
-        ? `[${selectedSubject}] ${input}`
-        : input;
-
       try {
-        await sendMessage(messageWithContext);
+        await sendMessage(input, {
+          subject: selectedSubject,
+          topic: selectedTopic,
+          learningStyle: user.learningStyle,
+          sessionDuration: studyTimer
+        });
         setInput("");
       } catch (error) {
         toast({
@@ -70,6 +72,10 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
         return prev - 1;
       });
     }, 1000);
+  };
+
+  const adaptLearningStyle = (style: string) => {
+    updateLearningStyle(style);
   };
 
   return (
@@ -102,6 +108,35 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
                 ))}
               </SelectContent>
             </Select>
+
+            {selectedSubject && (
+              <Select value={selectedTopic} onValueChange={setSelectedTopic}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select topic" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="basics">Basics</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+
+            <Select 
+              value={metadata.learningStyle} 
+              onValueChange={adaptLearningStyle}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Learning style" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="visual">Visual</SelectItem>
+                <SelectItem value="auditory">Auditory</SelectItem>
+                <SelectItem value="reading">Reading/Writing</SelectItem>
+                <SelectItem value="kinesthetic">Hands-on</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Button
               variant="outline"
               size="sm"
@@ -131,6 +166,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
               <MessageBubble
                 content={message.content}
                 isUser={message.role === 'user'}
+                context={message.context}
                 isLoading={i === messages.length - 1 && isLoading && message.role === 'assistant'}
                 className={message.role === 'user' ? 'bg-primary/10' : 'bg-muted'}
               />
@@ -143,9 +179,13 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={selectedSubject 
-            ? `Ask about ${selectedSubject.toLowerCase()}...`
-            : "Ask your AI tutor anything..."}
+          placeholder={
+            selectedSubject
+              ? `Ask about ${selectedSubject.toLowerCase()}${
+                  selectedTopic ? ` (${selectedTopic})` : ''
+                }...`
+              : "Ask your AI tutor anything..."
+          }
           disabled={isLoading}
           className="flex-1 bg-muted/50"
         />
