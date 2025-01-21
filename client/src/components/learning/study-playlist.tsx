@@ -11,19 +11,19 @@ import {
   Timer,
   BrainCircuit,
 } from "lucide-react";
-import type { Student } from "@db/schema";
+import type { User } from "@db/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface StudyPlaylistProps {
-  student: Student;
+  user: User;
   onSelectUnit?: (unitId: number) => void;
 }
 
-export function StudyPlaylist({ student, onSelectUnit }: StudyPlaylistProps) {
+export function StudyPlaylist({ user, onSelectUnit }: StudyPlaylistProps) {
   const { data, isLoading } = useQuery({
-    queryKey: ["/api/study-playlist", student.id],
+    queryKey: ["/api/study-playlist", user.id],
     queryFn: async () => {
-      const res = await fetch(`/api/study-playlist/${student.id}`);
+      const res = await fetch(`/api/study-playlist/${user.id}`);
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
@@ -86,7 +86,7 @@ export function StudyPlaylist({ student, onSelectUnit }: StudyPlaylistProps) {
                 <span>Focus Areas:</span>
               </div>
               <div className="flex gap-2">
-                {playlist.schedule.focusAreas.map((area) => (
+                {playlist.schedule.focusAreas.map((area: string) => (
                   <span
                     key={area}
                     className="bg-primary/10 text-primary px-2 py-1 rounded-full text-xs"
@@ -101,7 +101,7 @@ export function StudyPlaylist({ student, onSelectUnit }: StudyPlaylistProps) {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {playlist.playlist.map((item) => (
+        {playlist.playlist.map((item: any) => (
           <Card
             key={item.unit.id}
             className="group hover:shadow-lg transition-shadow"

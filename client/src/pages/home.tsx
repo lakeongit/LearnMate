@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChatInterface } from "@/components/chat/chat-interface";
 import { Header } from "@/components/layout/header";
@@ -11,12 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, MessageSquare, Sparkles, Trophy, ListMusic, GraduationCap } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import type { User } from "@db/schema";
+import { useLocation } from "wouter";
 
 interface AuthState {
   user: User | null;
 }
 
 export default function Home() {
+  const [, setLocation] = useLocation();
   const { data: auth, isLoading } = useQuery<AuthState>({
     queryKey: ["/api/user"],
   });
@@ -30,6 +31,7 @@ export default function Home() {
   }
 
   if (!auth?.user) {
+    setLocation("/auth");
     return null;
   }
 
