@@ -4,6 +4,7 @@ import { LogOut, BookOpen } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useStudentProgress } from "@/hooks/use-student-progress";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@db/schema";
 
 interface HeaderProps {
