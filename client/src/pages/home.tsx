@@ -4,6 +4,9 @@ import { useStudentProfile } from "@/hooks/use-student-profile";
 import { ChatInterface } from "@/components/chat/chat-interface";
 import { Header } from "@/components/layout/header";
 import { RecommendationsPanel } from "@/components/learning/recommendations-panel";
+import { LearningDashboard } from "@/components/learning/learning-dashboard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BookOpen, MessageSquare, Sparkles } from "lucide-react";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -28,14 +31,38 @@ export default function Home() {
             Welcome back, {student.name}!
           </h2>
           <p className="text-muted-foreground">
-            Ready for another 10-minute learning session?
+            Ready to continue your learning journey?
           </p>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          <ChatInterface student={student} />
-          <RecommendationsPanel student={student} />
-        </div>
+        <Tabs defaultValue="learning" className="space-y-8">
+          <TabsList>
+            <TabsTrigger value="learning" className="gap-2">
+              <BookOpen className="h-4 w-4" />
+              Learning
+            </TabsTrigger>
+            <TabsTrigger value="chat" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              AI Tutor
+            </TabsTrigger>
+            <TabsTrigger value="recommendations" className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              Recommendations
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="learning" className="mt-6">
+            <LearningDashboard student={student} />
+          </TabsContent>
+
+          <TabsContent value="chat" className="mt-6">
+            <ChatInterface student={student} />
+          </TabsContent>
+
+          <TabsContent value="recommendations" className="mt-6">
+            <RecommendationsPanel student={student} />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

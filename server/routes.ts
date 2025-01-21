@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { setupChat } from "./chat";
 import { setupAuth } from "./auth";
 import { setupRecommendations } from "./recommendations";
+import { setupLearningContent } from "./learning-content";
 
 // Middleware to ensure user is authenticated
 const ensureAuthenticated = (req: Express.Request, res: Express.Response, next: Express.NextFunction) => {
@@ -18,11 +19,12 @@ const ensureAuthenticated = (req: Express.Request, res: Express.Response, next: 
 export function registerRoutes(app: Express): Server {
   // Set up authentication
   setupAuth(app);
+  setupChat(app);
+  setupRecommendations(app);
+  setupLearningContent(app);
 
-  // Protected routes
   app.post("/api/students/profile", ensureAuthenticated, async (req, res) => {
     try {
-      // Create student profile for the authenticated user
       const [student] = await db
         .insert(students)
         .values({
@@ -59,7 +61,6 @@ export function registerRoutes(app: Express): Server {
     try {
       const studentId = parseInt(req.params.studentId);
 
-      // Verify the student belongs to the current user
       const [student] = await db
         .select()
         .from(students)
@@ -76,7 +77,6 @@ export function registerRoutes(app: Express): Server {
         .where(eq(learningProgress.studentId, studentId))
         .orderBy(learningProgress.completedAt);
 
-      // Calculate overall mastery
       const totalMastery = progress.reduce((sum, p) => sum + p.mastery, 0);
       const averageMastery = progress.length ? Math.round(totalMastery / progress.length) : 0;
 
@@ -93,7 +93,6 @@ export function registerRoutes(app: Express): Server {
     try {
       const studentId = parseInt(req.params.studentId);
 
-      // Verify the student belongs to the current user
       const [student] = await db
         .select()
         .from(students)
@@ -115,9 +114,6 @@ export function registerRoutes(app: Express): Server {
       res.status(400).json({ error: error.message });
     }
   });
-
-  setupChat(app);
-  setupRecommendations(app);
 
   const httpServer = createServer(app);
   return httpServer;

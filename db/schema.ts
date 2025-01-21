@@ -30,6 +30,40 @@ export const learningProgress = pgTable("learning_progress", {
   completedAt: timestamp("completed_at").defaultNow().notNull(),
 });
 
+export const learningUnits = pgTable("learning_units", {
+  id: serial("id").primaryKey(),
+  subject: text("subject").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  grade: integer("grade").notNull(),
+  difficulty: integer("difficulty").notNull(), // 1-5 scale
+  prerequisites: integer("prerequisite_unit_id").array(),
+  estimatedDuration: integer("estimated_duration").notNull(), // in minutes
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const contentModules = pgTable("content_modules", {
+  id: serial("id").primaryKey(),
+  unitId: integer("unit_id").references(() => learningUnits.id).notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  type: text("type").notNull(), // 'video', 'text', 'interactive', 'exercise'
+  learningStyle: text("learning_style").notNull(),
+  order: integer("order").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const studentProgress = pgTable("student_progress", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  moduleId: integer("module_id").references(() => contentModules.id).notNull(),
+  completed: boolean("completed").default(false).notNull(),
+  score: integer("score"), // Optional score for assessments
+  timeSpent: integer("time_spent").notNull(), // in minutes
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const chats = pgTable("chats", {
   id: serial("id").primaryKey(),
   studentId: integer("student_id").references(() => students.id).notNull(),
@@ -55,6 +89,7 @@ export const recommendations = pgTable("recommendations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Export schemas and types
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 export type User = typeof users.$inferSelect;
@@ -79,3 +114,18 @@ export const insertRecommendationSchema = createInsertSchema(recommendations);
 export const selectRecommendationSchema = createSelectSchema(recommendations);
 export type Recommendation = typeof recommendations.$inferSelect;
 export type NewRecommendation = typeof recommendations.$inferInsert;
+
+export const insertUnitSchema = createInsertSchema(learningUnits);
+export const selectUnitSchema = createSelectSchema(learningUnits);
+export type LearningUnit = typeof learningUnits.$inferSelect;
+export type NewLearningUnit = typeof learningUnits.$inferInsert;
+
+export const insertModuleSchema = createInsertSchema(contentModules);
+export const selectModuleSchema = createSelectSchema(contentModules);
+export type ContentModule = typeof contentModules.$inferSelect;
+export type NewContentModule = typeof contentModules.$inferInsert;
+
+export const insertStudentProgressSchema = createInsertSchema(studentProgress);
+export const selectStudentProgressSchema = createSelectSchema(studentProgress);
+export type StudentProgress = typeof studentProgress.$inferSelect;
+export type NewStudentProgress = typeof studentProgress.$inferInsert;
