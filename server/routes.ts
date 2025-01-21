@@ -59,10 +59,10 @@ export function registerRoutes(app: Express): Server {
 
   // Middleware to ensure user is authenticated
   const ensureAuthenticated = (req: Request, res: Response, next: NextFunction) => {
-    if (req.isAuthenticated()) {
-      return next();
+    if (!req.session || !req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
-    throw new AppError(401, "Unauthorized");
+    next();
   };
 
   // Profile creation endpoint
