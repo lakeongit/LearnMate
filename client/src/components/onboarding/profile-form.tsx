@@ -101,6 +101,15 @@ export function ProfileForm({ onComplete, queryClient }: ProfileFormProps) {
     createProfile.mutate(data);
   };
 
+  const handleSkip = () => {
+    createProfile.mutate({
+      name: "New Student",
+      grade: 1,
+      learningStyle: "visual",
+      subjects: ["math"],
+    });
+  };
+
   const handleQuizComplete = (learningStyle: "visual" | "auditory" | "kinesthetic") => {
     try {
       form.setValue("learningStyle", learningStyle);
@@ -221,13 +230,24 @@ export function ProfileForm({ onComplete, queryClient }: ProfileFormProps) {
           )}
         />
 
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={createProfile.isPending}
-        >
-          {createProfile.isPending ? "Creating Profile..." : "Create Profile"}
-        </Button>
+        <div className="flex gap-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleSkip}
+            disabled={createProfile.isPending}
+          >
+            Skip for Now
+          </Button>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={createProfile.isPending}
+          >
+            {createProfile.isPending ? "Creating Profile..." : "Create Profile"}
+          </Button>
+        </div>
       </form>
     </Form>
   );

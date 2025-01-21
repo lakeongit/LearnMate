@@ -54,7 +54,7 @@ export function Header({ student }: HeaderProps) {
             <Progress value={progress?.mastery ?? 0} className="h-2" />
           </div>
         </div>
-
+        <ProfileSettings student={student} />
         <Button variant="outline" size="sm" onClick={handleLogout}>
           <LogOut className="h-4 w-4 mr-2" />
           Sign Out
