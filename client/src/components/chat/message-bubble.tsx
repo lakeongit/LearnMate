@@ -43,12 +43,74 @@ export function MessageBubble({
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            {content.split('\n').map((paragraph, index) => (
-              <p key={index} className="text-sm leading-relaxed mb-2 last:mb-0">
-                {paragraph}
-              </p>
-            ))}
+          <div className="prose prose-sm dark:prose-invert max-w-none space-y-4">
+            {content.split('\n').map((paragraph, index) => {
+              // Handle headers
+              if (paragraph.startsWith('###')) {
+                return (
+                  <h3 key={index} className="text-lg font-bold text-primary mt-6 first:mt-0">
+                    {paragraph.replace('###', '').trim()}
+                  </h3>
+                );
+              }
+              
+              // Handle subheaders
+              if (paragraph.startsWith('####')) {
+                return (
+                  <h4 key={index} className="text-md font-semibold text-primary/80 mt-4">
+                    {paragraph.replace('####', '').trim()}
+                  </h4>
+                );
+              }
+
+              // Handle code blocks
+              if (paragraph.startsWith('```')) {
+                const language = paragraph.split('\n')[0].replace('```', '');
+                const code = paragraph
+                  .split('\n')
+                  .slice(1, -1)
+                  .join('\n');
+                return (
+                  <div key={index} className="bg-muted/30 rounded-md p-4 my-4">
+                    <pre className="text-sm overflow-x-auto">
+                      <code>{code}</code>
+                    </pre>
+                  </div>
+                );
+              }
+
+              // Handle bullet points
+              if (paragraph.startsWith('- ')) {
+                return (
+                  <li key={index} className="text-sm leading-relaxed ml-4">
+                    {paragraph.substring(2)}
+                  </li>
+                );
+              }
+
+              // Handle source links
+              if (paragraph.startsWith('[') && paragraph.includes(']:')) {
+                const [ref, link] = paragraph.split(']: ');
+                return (
+                  <a 
+                    key={index}
+                    href={link}
+                    className="text-sm text-primary hover:underline block"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {ref.replace('[', '').replace(']', '')}
+                  </a>
+                );
+              }
+
+              // Regular paragraphs
+              return (
+                <p key={index} className="text-sm leading-relaxed">
+                  {paragraph}
+                </p>
+              );
+            })}
           </div>
 
           {!isUser && context && Object.keys(context).length > 0 && (
