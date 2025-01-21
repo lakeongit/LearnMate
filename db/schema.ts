@@ -58,8 +58,36 @@ export const learningProgress = pgTable("learning_progress", {
   completed: boolean("completed").default(false).notNull(),
   score: integer("score"),
   timeSpent: integer("time_spent"), // in minutes
+  mastery: integer("mastery"), // percentage
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Achievements system
+export const achievements = pgTable("achievements", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  criteria: text("criteria").notNull(), // JSON string containing achievement criteria
+  badgeIcon: text("badge_icon").notNull(),
+  rarity: text("rarity").notNull(), // 'common', 'rare', 'epic', 'legendary'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const studentAchievements = pgTable("student_achievements", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  achievementId: integer("achievement_id").references(() => achievements.id).notNull(),
+  earnedAt: timestamp("earned_at").defaultNow().notNull(),
+  metadata: text("metadata"), // JSON string for additional data
+});
+
+export const motivationMetrics = pgTable("motivation_metrics", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  metric: text("metric").notNull(), // e.g., 'login_streak', 'study_time'
+  value: integer("value").notNull(),
+  date: timestamp("date").defaultNow().notNull(),
 });
 
 // Create schemas and types for all tables
@@ -87,3 +115,18 @@ export const insertProgressSchema = createInsertSchema(learningProgress);
 export const selectProgressSchema = createSelectSchema(learningProgress);
 export type LearningProgress = typeof learningProgress.$inferSelect;
 export type NewLearningProgress = typeof learningProgress.$inferInsert;
+
+export const insertAchievementSchema = createInsertSchema(achievements);
+export const selectAchievementSchema = createSelectSchema(achievements);
+export type Achievement = typeof achievements.$inferSelect;
+export type NewAchievement = typeof achievements.$inferInsert;
+
+export const insertStudentAchievementSchema = createInsertSchema(studentAchievements);
+export const selectStudentAchievementSchema = createSelectSchema(studentAchievements);
+export type StudentAchievement = typeof studentAchievements.$inferSelect;
+export type NewStudentAchievement = typeof studentAchievements.$inferInsert;
+
+export const insertMotivationMetricSchema = createInsertSchema(motivationMetrics);
+export const selectMotivationMetricSchema = createSelectSchema(motivationMetrics);
+export type MotivationMetric = typeof motivationMetrics.$inferSelect;
+export type NewMotivationMetric = typeof motivationMetrics.$inferInsert;

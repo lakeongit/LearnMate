@@ -17,26 +17,26 @@ import {
   Calendar,
   Target
 } from "lucide-react";
-import type { Student } from "@db/schema";
+import type { User } from "@db/schema";
 
 interface AchievementsPanelProps {
-  student: Student;
+  user: User;
 }
 
-export function AchievementsPanel({ student }: AchievementsPanelProps) {
+export function AchievementsPanel({ user }: AchievementsPanelProps) {
   const { data: achievements, isLoading: isLoadingAchievements } = useQuery({
-    queryKey: ["/api/achievements", student.id],
+    queryKey: ["/api/achievements", user.id],
     queryFn: async () => {
-      const res = await fetch(`/api/achievements/${student.id}`);
+      const res = await fetch(`/api/achievements/${user.id}`);
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
   });
 
   const { data: metrics, isLoading: isLoadingMetrics } = useQuery({
-    queryKey: ["/api/motivation", student.id],
+    queryKey: ["/api/motivation", user.id],
     queryFn: async () => {
-      const res = await fetch(`/api/motivation/${student.id}`);
+      const res = await fetch(`/api/motivation/${user.id}`);
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },

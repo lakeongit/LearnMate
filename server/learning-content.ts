@@ -3,7 +3,7 @@ import { db } from "@db";
 import { learningUnits, users, learningProgress, contentModules } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 
-// Define curriculum structure by grade level
+// Add 3rd-grade curriculum standards
 const CURRICULUM_STANDARDS = {
   0: { // Kindergarten
     "Mathematics": [
@@ -110,8 +110,69 @@ const CURRICULUM_STANDARDS = {
         concepts: ["Sound waves", "Light reflection", "Sound patterns"]
       }
     ]
+  },
+  3: { // 3rd Grade
+    "Mathematics": [
+      {
+        topic: "Multiplication and Division",
+        standards: ["3.OA.A.1", "3.OA.A.2", "3.OA.A.3"],
+        objectives: ["Understand multiplication", "Understand division", "Solve word problems"],
+        concepts: ["Arrays", "Equal groups", "Properties of operations"]
+      },
+      {
+        topic: "Fractions",
+        standards: ["3.NF.A.1", "3.NF.A.2", "3.NF.A.3"],
+        objectives: ["Understand fractions", "Compare fractions", "Equivalent fractions"],
+        concepts: ["Number line", "Unit fractions", "Whole numbers as fractions"]
+      },
+      {
+        topic: "Area and Perimeter",
+        standards: ["3.MD.C.5", "3.MD.C.6", "3.MD.C.7"],
+        objectives: ["Calculate area", "Calculate perimeter", "Relate area to multiplication"],
+        concepts: ["Square units", "Additive area", "Multiplicative area"]
+      }
+    ],
+    "Science": [
+      {
+        topic: "Forces and Interactions",
+        standards: ["3-PS2-1", "3-PS2-2"],
+        objectives: ["Investigate forces", "Observe magnetic forces", "Predict motion"],
+        concepts: ["Balanced forces", "Magnets", "Cause and effect"]
+      },
+      {
+        topic: "Life Cycles",
+        standards: ["3-LS1-1", "3-LS3-1"],
+        objectives: ["Study organism development", "Compare life cycles", "Understand inheritance"],
+        concepts: ["Growth stages", "Reproduction", "Inherited traits"]
+      },
+      {
+        topic: "Weather and Climate",
+        standards: ["3-ESS2-1", "3-ESS2-2"],
+        objectives: ["Record weather data", "Analyze patterns", "Predict weather"],
+        concepts: ["Weather patterns", "Climate zones", "Seasonal changes"]
+      }
+    ],
+    "English": [
+      {
+        topic: "Reading Comprehension",
+        standards: ["RL.3.1", "RL.3.2", "RL.3.3"],
+        objectives: ["Ask and answer questions", "Determine main ideas", "Analyze characters"],
+        concepts: ["Text evidence", "Theme", "Character traits"]
+      },
+      {
+        topic: "Writing Skills",
+        standards: ["W.3.1", "W.3.2", "W.3.3"],
+        objectives: ["Write arguments", "Write informative texts", "Write narratives"],
+        concepts: ["Organization", "Supporting details", "Transitions"]
+      },
+      {
+        topic: "Grammar and Language",
+        standards: ["L.3.1", "L.3.2", "L.3.3"],
+        objectives: ["Use proper grammar", "Apply capitalization", "Choose words carefully"],
+        concepts: ["Parts of speech", "Punctuation", "Word relationships"]
+      }
+    ]
   }
-  // Additional grades will be dynamically generated
 };
 
 async function generateGradeLevelContent(grade: number, subject: string) {
@@ -119,7 +180,6 @@ async function generateGradeLevelContent(grade: number, subject: string) {
   if (!CURRICULUM_STANDARDS[grade]) {
     const gradeLevel = grade === 0 ? "kindergarten" : `grade ${grade}`;
     const prompt = `Create a comprehensive ${subject} curriculum for ${gradeLevel} students.
-
     Format the response as JSON with this structure:
     {
       "topics": [
@@ -131,7 +191,6 @@ async function generateGradeLevelContent(grade: number, subject: string) {
         }
       ]
     }
-
     Consider:
     1. Age-appropriate content and complexity
     2. Standard academic progression
@@ -139,10 +198,15 @@ async function generateGradeLevelContent(grade: number, subject: string) {
     4. ${subject}-specific skills development`;
 
     try {
+      if (!process.env.PERPLEXITY_API_KEY) {
+        throw new Error("PERPLEXITY_API_KEY is not configured");
+      }
+
       const response = await fetch("https://api.perplexity.ai/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
           Authorization: `Bearer ${process.env.PERPLEXITY_API_KEY}`,
         },
         body: JSON.stringify({
@@ -156,15 +220,26 @@ async function generateGradeLevelContent(grade: number, subject: string) {
               role: "user",
               content: prompt
             }
-          ]
+          ],
+          temperature: 0.7,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error(`Error generating curriculum for grade ${grade}:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
+      if (!result.choices?.[0]?.message?.content) {
+        throw new Error("Invalid response format from API");
+      }
+
       const curriculum = JSON.parse(result.choices[0].message.content);
       return curriculum.topics;
     } catch (error) {
@@ -179,7 +254,7 @@ async function generateGradeLevelContent(grade: number, subject: string) {
     }
   }
 
-  return CURRICULUM_STANDARDS[grade][subject] || [];
+  return CURRICULUM_STANDARDS[grade]?.[subject] || [];
 }
 
 async function generateLearningContent(user: any, subject: string, topic: any) {
@@ -291,6 +366,7 @@ async function generateLearningContent(user: any, subject: string, topic: any) {
     };
   }
 }
+
 
 
 export async function setupLearningContent(app: Express) {

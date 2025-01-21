@@ -4,9 +4,8 @@ import {
   achievements, 
   studentAchievements, 
   motivationMetrics,
-  students,
-  learningProgress,
-  studentQuizAttempts
+  users,
+  learningProgress
 } from "@db/schema";
 import { eq, and, count, avg, desc } from "drizzle-orm";
 
@@ -50,123 +49,130 @@ const DEFAULT_ACHIEVEMENTS = [
   }
 ];
 
-async function checkAndAwardAchievements(studentId: number) {
-  // Get all existing achievements
+async function initializeAchievements() {
   const existingAchievements = await db
     .select()
     .from(achievements);
 
-  // If no achievements exist, create default ones
   if (existingAchievements.length === 0) {
     await db
       .insert(achievements)
-      .values(DEFAULT_ACHIEVEMENTS);
-  }
-
-  // Get student's current stats
-  const [quizStats] = await db
-    .select({
-      perfectQuizzes: count(studentQuizAttempts.id),
-      avgScore: avg(studentQuizAttempts.score)
-    })
-    .from(studentQuizAttempts)
-    .where(
-      and(
-        eq(studentQuizAttempts.studentId, studentId),
-        eq(studentQuizAttempts.score, 100)
-      )
-    );
-
-  const [progressStats] = await db
-    .select({
-      totalSessions: count(learningProgress.id),
-      avgMastery: avg(learningProgress.mastery)
-    })
-    .from(learningProgress)
-    .where(eq(learningProgress.studentId, studentId));
-
-  // Check each achievement criteria and award if met
-  const allAchievements = await db.select().from(achievements);
-  
-  for (const achievement of allAchievements) {
-    const [existing] = await db
-      .select()
-      .from(studentAchievements)
-      .where(
-        and(
-          eq(studentAchievements.studentId, studentId),
-          eq(studentAchievements.achievementId, achievement.id)
-        )
-      )
-      .limit(1);
-
-    if (existing) continue;
-
-    let shouldAward = false;
-    let progress = 0;
-
-    switch (achievement.criteria.type) {
-      case "quiz_score":
-        shouldAward = (quizStats?.perfectQuizzes || 0) >= achievement.criteria.threshold;
-        progress = Math.min(100, ((quizStats?.perfectQuizzes || 0) / achievement.criteria.threshold) * 100);
-        break;
-
-      case "learning_time":
-        shouldAward = (progressStats?.totalSessions || 0) >= achievement.criteria.threshold;
-        progress = Math.min(100, ((progressStats?.totalSessions || 0) / achievement.criteria.threshold) * 100);
-        break;
-
-      case "mastery_level":
-        shouldAward = (progressStats?.avgMastery || 0) >= achievement.criteria.threshold;
-        progress = Math.min(100, ((progressStats?.avgMastery || 0) / achievement.criteria.threshold) * 100);
-        break;
-    }
-
-    if (shouldAward) {
-      await db
-        .insert(studentAchievements)
-        .values({
-          studentId,
-          achievementId: achievement.id,
-          metadata: { progress: 100 }
-        });
-    } else {
-      // Update progress
-      await db
-        .insert(motivationMetrics)
-        .values({
-          studentId,
-          metric: `achievement_progress_${achievement.id}`,
-          value: Math.floor(progress)
-        });
-    }
+      .values(DEFAULT_ACHIEVEMENTS.map(achievement => ({
+        name: achievement.name,
+        description: achievement.description,
+        criteria: JSON.stringify(achievement.criteria),
+        badgeIcon: achievement.badgeIcon,
+        rarity: achievement.rarity
+      })));
   }
 }
 
-export function setupAchievements(app: Express) {
-  // Get student's achievements
-  app.get("/api/achievements/:studentId", async (req, res) => {
-    try {
-      const studentId = parseInt(req.params.studentId);
+async function checkAndAwardAchievements(userId: number) {
+  try {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
-      // Verify the student belongs to the current user
-      const [student] = await db
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get user's current stats
+    const [progressStats] = await db
+      .select({
+        totalSessions: count(learningProgress.id),
+        avgMastery: avg(learningProgress.mastery)
+      })
+      .from(learningProgress)
+      .where(eq(learningProgress.userId, userId));
+
+    // Check each achievement criteria and award if met
+    const allAchievements = await db.select().from(achievements);
+
+    for (const achievement of allAchievements) {
+      const [existing] = await db
         .select()
-        .from(students)
-        .where(eq(students.id, studentId))
+        .from(studentAchievements)
+        .where(
+          and(
+            eq(studentAchievements.userId, userId),
+            eq(studentAchievements.achievementId, achievement.id)
+          )
+        )
         .limit(1);
 
-      if (!student || student.userId !== req.user!.id) {
+      if (existing) continue;
+
+      const criteria = JSON.parse(achievement.criteria);
+      let shouldAward = false;
+      let progress = 0;
+
+      switch (criteria.type) {
+        case "learning_time":
+          shouldAward = (progressStats?.totalSessions || 0) >= criteria.threshold;
+          progress = Math.min(100, ((progressStats?.totalSessions || 0) / criteria.threshold) * 100);
+          break;
+
+        case "mastery_level":
+          shouldAward = (progressStats?.avgMastery || 0) >= criteria.threshold;
+          progress = Math.min(100, ((progressStats?.avgMastery || 0) / criteria.threshold) * 100);
+          break;
+
+        // Add more achievement types here
+      }
+
+      if (shouldAward) {
+        await db
+          .insert(studentAchievements)
+          .values({
+            userId,
+            achievementId: achievement.id,
+            metadata: JSON.stringify({ progress: 100 })
+          });
+      } else {
+        // Update progress
+        await db
+          .insert(motivationMetrics)
+          .values({
+            userId,
+            metric: `achievement_progress_${achievement.id}`,
+            value: Math.floor(progress)
+          });
+      }
+    }
+  } catch (error) {
+    console.error("Error checking achievements:", error);
+    throw error;
+  }
+}
+
+export async function setupAchievements(app: Express) {
+  // Initialize default achievements
+  await initializeAchievements();
+
+  // Get user's achievements
+  app.get("/api/achievements/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+
+      // Verify the user belongs to the current user
+      if (!req.user || req.user.id !== userId) {
         return res.status(403).json({ error: "Unauthorized access to achievements" });
       }
 
       // Check and award any new achievements
-      await checkAndAwardAchievements(studentId);
+      await checkAndAwardAchievements(userId);
 
       // Get all achievements with earned status
       const earnedAchievements = await db
         .select({
-          ...achievements,
+          id: achievements.id,
+          name: achievements.name,
+          description: achievements.description,
+          badgeIcon: achievements.badgeIcon,
+          rarity: achievements.rarity,
           earned: studentAchievements.earnedAt,
           progress: motivationMetrics.value
         })
@@ -175,48 +181,44 @@ export function setupAchievements(app: Express) {
           studentAchievements,
           and(
             eq(achievements.id, studentAchievements.achievementId),
-            eq(studentAchievements.studentId, studentId)
+            eq(studentAchievements.userId, userId)
           )
         )
         .leftJoin(
           motivationMetrics,
           and(
-            eq(motivationMetrics.studentId, studentId),
-            eq(motivationMetrics.metric, `achievement_progress_${achievements.id}`)
+            eq(motivationMetrics.userId, userId),
+            eq(motivationMetrics.metric, db.raw(`'achievement_progress_' || ${achievements.id}::text`))
           )
         )
         .orderBy(desc(studentAchievements.earnedAt));
 
       res.json(earnedAchievements);
     } catch (error: any) {
+      console.error("Error fetching achievements:", error);
       res.status(500).json({ error: error.message });
     }
   });
 
-  // Get student's motivation metrics
-  app.get("/api/motivation/:studentId", async (req, res) => {
+  // Get user's motivation metrics
+  app.get("/api/motivation/:userId", async (req, res) => {
     try {
-      const studentId = parseInt(req.params.studentId);
+      const userId = parseInt(req.params.userId);
 
-      // Verify the student belongs to the current user
-      const [student] = await db
-        .select()
-        .from(students)
-        .where(eq(students.id, studentId))
-        .limit(1);
-
-      if (!student || student.userId !== req.user!.id) {
+      // Verify the user belongs to the current user
+      if (!req.user || req.user.id !== userId) {
         return res.status(403).json({ error: "Unauthorized access to motivation metrics" });
       }
 
       const metrics = await db
         .select()
         .from(motivationMetrics)
-        .where(eq(motivationMetrics.studentId, studentId))
+        .where(eq(motivationMetrics.userId, userId))
         .orderBy(desc(motivationMetrics.date));
 
       res.json(metrics);
     } catch (error: any) {
+      console.error("Error fetching motivation metrics:", error);
       res.status(500).json({ error: error.message });
     }
   });

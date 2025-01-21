@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { setupChat } from "./chat";
 import { setupLearningContent } from "./learning-content";
+import { setupAchievements } from "./achievements";
 import { db } from "@db";
 import { users } from "@db/schema";
 import { eq } from "drizzle-orm";
@@ -94,6 +95,7 @@ export function registerRoutes(app: Express): Server {
   setupAuth(app);
   setupChat(app);
   setupLearningContent(app);
+  setupAchievements(app); // Register achievements routes
 
   // Create HTTP server
   const httpServer = createServer(app);
