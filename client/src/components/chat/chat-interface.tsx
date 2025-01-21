@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useChat } from "@/hooks/use-chat";
 import { MessageBubble } from "./message-bubble";
@@ -70,13 +69,13 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
         <div className="space-y-6 max-w-3xl mx-auto">
           {messages.map((message, i) => (
             <div key={i} className="flex items-start gap-3">
-              {!message.isUser && <Bot className="h-6 w-6 text-primary mt-1" />}
-              {message.isUser && <User className="h-6 w-6 text-muted-foreground mt-1" />}
+              {message.role === 'assistant' && <Bot className="h-6 w-6 text-primary mt-1" />}
+              {message.role === 'user' && <User className="h-6 w-6 text-muted-foreground mt-1" />}
               <MessageBubble
                 content={message.content}
-                isUser={message.role === "user"}
-                isTyping={i === messages.length - 1 && isLoading && !message.isUser}
-                shouldGroup={i > 0 && messages[i - 1].role === message.role}
+                isUser={message.role === 'user'}
+                isLoading={i === messages.length - 1 && isLoading && message.role === 'assistant'}
+                className={message.role === 'user' ? 'bg-primary/10' : 'bg-muted'}
               />
             </div>
           ))}
