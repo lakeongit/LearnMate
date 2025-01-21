@@ -141,14 +141,14 @@ export function setupAuth(app: Express) {
   app.post("/api/login", (req, res, next) => {
     passport.authenticate("local", (err: any, user: Express.User | false, info: IVerifyOptions) => {
       if (err) {
-        return next(err);
+        return res.status(500).json({ error: err.message });
       }
       if (!user) {
-        return res.status(401).send(info.message);
+        return res.status(401).json({ error: info.message });
       }
       req.login(user, (err) => {
         if (err) {
-          return next(err);
+          return res.status(500).json({ error: err.message });
         }
         return res.json({ id: user.id, username: user.username });
       });
