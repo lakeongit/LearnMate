@@ -1,8 +1,17 @@
 import { pgTable, text, serial, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { z } from "zod";
+
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").unique().notNull(),
+  password: text("password").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 export const students = pgTable("students", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
   grade: integer("grade").notNull(),
   learningStyle: text("learning_style").notNull(),
@@ -34,16 +43,25 @@ export const chats = pgTable("chats", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// User schemas
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+
+// Student schemas
 export const insertStudentSchema = createInsertSchema(students);
 export const selectStudentSchema = createSelectSchema(students);
 export type Student = typeof students.$inferSelect;
 export type NewStudent = typeof students.$inferInsert;
 
+// Progress schemas
 export const insertProgressSchema = createInsertSchema(learningProgress);
 export const selectProgressSchema = createSelectSchema(learningProgress);
 export type Progress = typeof learningProgress.$inferSelect;
 export type NewProgress = typeof learningProgress.$inferInsert;
 
+// Chat schemas
 export const insertChatSchema = createInsertSchema(chats);
 export const selectChatSchema = createSelectSchema(chats);
 export type Chat = typeof chats.$inferSelect;

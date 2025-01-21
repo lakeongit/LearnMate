@@ -2,47 +2,56 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
 import { students, chats, learningProgress } from "@db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { setupChat } from "./chat";
+import { setupAuth } from "./auth";
+
+// Middleware to ensure user is authenticated
+const ensureAuthenticated = (req: Express.Request, res: Express.Response, next: Express.NextFunction) => {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).send("Unauthorized");
+};
 
 export function registerRoutes(app: Express): Server {
-  app.post("/api/students", async (req, res) => {
-    try {
-      const [student] = await db
-        .insert(students)
-        .values(req.body)
-        .returning();
-      res.json(student);
-    } catch (error: any) {
-      res.status(400).send(error.message);
-    }
-  });
+  // Set up authentication
+  setupAuth(app);
 
-  app.post("/api/students/logout", async (req, res) => {
-    try {
-      // Simply clear the session-based authentication
-      res.clearCookie('student_id');
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(500).send(error.message);
-    }
-  });
-
-  app.get("/api/students/me", async (req, res) => {
+  // Protected routes
+  app.get("/api/students/me", ensureAuthenticated, async (req, res) => {
     try {
       const [student] = await db
         .select()
         .from(students)
+        .where(eq(students.userId, req.user!.id))
         .limit(1);
+
+      if (!student) {
+        return res.status(404).send("Student profile not found");
+      }
+
       res.json(student);
     } catch (error: any) {
       res.status(400).send(error.message);
     }
   });
 
-  app.get("/api/progress/:studentId", async (req, res) => {
+  app.get("/api/progress/:studentId", ensureAuthenticated, async (req, res) => {
     try {
       const studentId = parseInt(req.params.studentId);
+
+      // Verify the student belongs to the current user
+      const [student] = await db
+        .select()
+        .from(students)
+        .where(eq(students.id, studentId))
+        .limit(1);
+
+      if (!student || student.userId !== req.user!.id) {
+        return res.status(403).send("Unauthorized access to student progress");
+      }
+
       const progress = await db
         .select()
         .from(learningProgress)
@@ -62,16 +71,52 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/chats/:studentId", async (req, res) => {
+  app.get("/api/chats/:studentId", ensureAuthenticated, async (req, res) => {
     try {
-      const chat = await db
+      const studentId = parseInt(req.params.studentId);
+
+      // Verify the student belongs to the current user
+      const [student] = await db
+        .select()
+        .from(students)
+        .where(eq(students.id, studentId))
+        .limit(1);
+
+      if (!student || student.userId !== req.user!.id) {
+        return res.status(403).send("Unauthorized access to chat history");
+      }
+
+      const [chat] = await db
         .select()
         .from(chats)
-        .where(eq(chats.studentId, parseInt(req.params.studentId)))
+        .where(eq(chats.studentId, studentId))
         .orderBy(chats.createdAt);
-      res.json(chat?.[0]?.messages || []);
+
+      res.json(chat?.messages || []);
     } catch (error: any) {
       res.status(400).send(error.message);
+    }
+  });
+
+  app.post("/api/students", async (req, res) => {
+    try {
+      const [student] = await db
+        .insert(students)
+        .values(req.body)
+        .returning();
+      res.json(student);
+    } catch (error: any) {
+      res.status(400).send(error.message);
+    }
+  });
+
+  app.post("/api/students/logout", async (req, res) => {
+    try {
+      // Simply clear the session-based authentication
+      res.clearCookie('student_id');
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).send(error.message);
     }
   });
 
