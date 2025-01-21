@@ -2,10 +2,35 @@ import { pgTable, text, serial, integer, timestamp, jsonb, boolean } from "drizz
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Existing users table with role field added
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").unique().notNull(),
   password: text("password").notNull(),
+  role: text("role").default('user').notNull(), // 'admin' or 'user'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Admin permissions table
+export const adminPermissions = pgTable("admin_permissions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  permissions: jsonb("permissions").notNull().$type<{
+    manageUsers: boolean;
+    manageContent: boolean;
+    viewAnalytics: boolean;
+    manageSettings: boolean;
+  }>(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Admin audit log
+export const adminAuditLog = pgTable("admin_audit_log", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  action: text("action").notNull(), // e.g., 'create_content', 'update_user', etc.
+  details: jsonb("details").notNull(),
+  ipAddress: text("ip_address"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -164,7 +189,21 @@ export const motivationMetrics = pgTable("motivation_metrics", {
   date: timestamp("date").defaultNow().notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users);
+// Add new schema types for admin-related tables
+export const insertAdminPermissionSchema = createInsertSchema(adminPermissions);
+export const selectAdminPermissionSchema = createSelectSchema(adminPermissions);
+export type AdminPermission = typeof adminPermissions.$inferSelect;
+export type NewAdminPermission = typeof adminPermissions.$inferInsert;
+
+export const insertAuditLogSchema = createInsertSchema(adminAuditLog);
+export const selectAuditLogSchema = createSelectSchema(adminAuditLog);
+export type AuditLog = typeof adminAuditLog.$inferSelect;
+export type NewAuditLog = typeof adminAuditLog.$inferInsert;
+
+// Update user schema to include role
+export const insertUserSchema = createInsertSchema(users, {
+  role: z.enum(['admin', 'user']).default('user'),
+});
 export const selectUserSchema = createSelectSchema(users);
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
