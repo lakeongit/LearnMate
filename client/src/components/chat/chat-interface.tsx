@@ -33,7 +33,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
   const [showTutorExplainer, setShowTutorExplainer] = useState(true);
-  const { messages = [], sendMessage, isLoading, clearMessages } = useChat(user.id);
+  const { messages = [], sendMessage, isLoading, clearMessages, metadata } = useChat(user.id);
   const uniqueMessages = Array.from(new Map(messages.map(m => [m.content, m])).values());
   const { toast } = useToast();
   const [studyTimer, setStudyTimer] = useState(0);
