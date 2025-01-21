@@ -35,15 +35,15 @@ async function generateLearningContent(student: Student, subject: string) {
   const gradeContent = SUBJECTS_BY_GRADE[student.grade as keyof typeof SUBJECTS_BY_GRADE] || SUBJECTS_BY_GRADE[5];
   const topics = gradeContent[subject as keyof typeof gradeContent] || [];
 
-  const prompt = `Create an engaging educational content for a grade ${student.grade} student who prefers ${student.learningStyle} learning.
+  const prompt = `Create a concise 10-minute educational lesson for a grade ${student.grade} student who prefers ${student.learningStyle} learning.
   The content should be about ${subject}, specifically covering the topic of ${topics[0]}.
   Include:
-  1. A clear title and description suitable for grade ${student.grade}
-  2. Main content broken into digestible sections
-  3. Interactive elements or exercises appropriate for ${student.learningStyle} learners
-  4. Visual aids or diagrams (described in text)
-  5. Key takeaways or summary
-  6. Real-world examples and applications
+  1. A clear title and brief description suitable for grade ${student.grade} (30 seconds)
+  2. Main content in 2-3 short, focused sections (6 minutes total)
+  3. One quick interactive exercise for ${student.learningStyle} learners (2 minutes)
+  4. Key takeaways (1.5 minutes)
+  
+  Keep all content brief and focused for a 10-minute attention span.
 
   Format the response as a JSON object with the following structure:
   {
@@ -143,7 +143,7 @@ export async function setupLearningContent(app: Express) {
                   description: content.description,
                   grade: student.grade,
                   difficulty: content.difficulty || 1,
-                  estimatedDuration: content.estimatedDuration || 30,
+                  estimatedDuration: 10, // Fixed 10-minute duration
                 })
                 .returning();
 
