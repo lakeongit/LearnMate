@@ -172,4 +172,37 @@ export function setupAuth(app: Express) {
     }
     res.json(req.user);
   });
+
+  // Add this new endpoint after the existing authentication routes
+  app.post("/api/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      // Find user by email (username in our case since we're using email as username)
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, email))
+        .limit(1);
+
+      if (!user) {
+        // For security reasons, always return success even if email doesn't exist
+        return res.json({ 
+          message: "If an account exists with this email, you will receive password reset instructions." 
+        });
+      }
+
+      // In a real application, you would:
+      // 1. Generate a password reset token
+      // 2. Save it to the database with an expiration
+      // 3. Send an email with a reset link
+
+      // For now, we'll just return a success message
+      res.json({ 
+        message: "If an account exists with this email, you will receive password reset instructions." 
+      });
+    } catch (error: any) {
+      res.status(500).send(error.message);
+    }
+  });
 }
