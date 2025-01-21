@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "./use-toast";
+import type { MessageStatusType } from "@/components/chat/message-status";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
+  status?: MessageStatusType;
   context?: {
     subject?: string;
     topic?: string;
@@ -62,25 +64,58 @@ export function useChat(studentId: number) {
 
   const sendMessage = useMutation({
     mutationFn: async ({ content, context }: { content: string; context?: Message["context"] }) => {
-      // Use guaranteed default session if chatSession is undefined
-      const currentSession = chatSession || DEFAULT_SESSION;
-      const sessionDuration = Math.floor((Date.now() - currentSession.metadata.startTime) / 1000);
+      // Update message status in cache while sending
+      const optimisticUpdate: Message = {
+        role: "user",
+        content,
+        status: "sending",
+        context,
+      };
 
-      const res = await fetch(`/api/chats/${studentId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          content,
-          context: {
-            ...context,
-            sessionDuration,
-          }
-        }),
-        credentials: "include",
-      });
+      const previousData = queryClient.getQueryData<ChatSession>(["/api/chats", studentId]);
+      queryClient.setQueryData<ChatSession>(["/api/chats", studentId], old => ({
+        ...old!,
+        messages: [...(old?.messages || []), optimisticUpdate],
+      }));
 
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
+      try {
+        // Use guaranteed default session if chatSession is undefined
+        const currentSession = chatSession || DEFAULT_SESSION;
+        const sessionDuration = Math.floor((Date.now() - currentSession.metadata.startTime) / 1000);
+
+        const res = await fetch(`/api/chats/${studentId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            content,
+            context: {
+              ...context,
+              sessionDuration,
+            }
+          }),
+          credentials: "include",
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+
+        // Update message status to delivered
+        const updatedMessage = { ...optimisticUpdate, status: "delivered" as const };
+        return {
+          ...data,
+          messages: [...(data.messages || []).slice(0, -1), updatedMessage],
+        };
+      } catch (error) {
+        // Revert to previous state and mark message as error
+        queryClient.setQueryData<ChatSession>(["/api/chats", studentId], {
+          ...previousData!,
+          messages: [
+            ...(previousData?.messages || []),
+            { ...optimisticUpdate, status: "error" as const },
+          ],
+        });
+        throw error;
+      }
     },
     onSuccess: (newSession: ChatSession) => {
       // Ensure metadata with startTime when updating cache

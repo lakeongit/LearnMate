@@ -185,6 +185,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
                 content={message.content}
                 isUser={message.role === 'user'}
                 context={message.context}
+                status={message.status}
                 isLoading={i === messages.length - 1 && isLoading && message.role === 'assistant'}
                 className={message.role === 'user' ? 'bg-primary/10' : 'bg-muted'}
               />

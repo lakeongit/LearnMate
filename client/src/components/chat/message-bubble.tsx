@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { MessageStatus } from "./message-status";
 
 interface MessageBubbleProps {
   content: string;
@@ -12,9 +13,17 @@ interface MessageBubbleProps {
     sessionDuration?: number;
   };
   className?: string;
+  status?: "sending" | "sent" | "delivered" | "seen" | "error";
 }
 
-export function MessageBubble({ content, isUser, isLoading, context, className }: MessageBubbleProps) {
+export function MessageBubble({ 
+  content, 
+  isUser, 
+  isLoading, 
+  context, 
+  className,
+  status 
+}: MessageBubbleProps) {
   return (
     <div
       className={cn(
@@ -57,6 +66,18 @@ export function MessageBubble({ content, isUser, isLoading, context, className }
                   Style: {context.learningStyle}
                 </span>
               )}
+            </div>
+          )}
+
+          {isUser && status && (
+            <div className="flex justify-end mt-1">
+              <MessageStatus 
+                status={status} 
+                className={cn(
+                  "opacity-75",
+                  status === "error" ? "text-destructive" : "text-primary-foreground"
+                )}
+              />
             </div>
           )}
         </div>
