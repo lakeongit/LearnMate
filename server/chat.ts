@@ -12,10 +12,11 @@ export async function setupChat(app: Express) {
     next();
   };
 
-  // Get chat history for a user
+  // Get chat history for a user's current session
   app.get("/api/chats/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
+      const sessionId = req.session?.id;
 
       // Verify the user is requesting their own chat history
       if (!req.user || req.user.id !== userId) {
@@ -26,6 +27,7 @@ export async function setupChat(app: Express) {
         .select()
         .from(chatMessages)
         .where(eq(chatMessages.userId, userId))
+        .where(sql`created_at >= NOW() - INTERVAL '24 HOURS'`)
         .orderBy(chatMessages.createdAt);
 
       res.json(messages);
@@ -57,6 +59,7 @@ export async function setupChat(app: Express) {
           userId,
           content,
           role: 'user',
+          sessionId: req.session?.id,
         })
         .returning();
 
