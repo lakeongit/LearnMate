@@ -15,6 +15,53 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Student, LearningUnit } from "@db/schema";
+import { useStudentProfile } from "@/hooks/use-student-profile";
+
+export function LearningDashboard() {
+  const { student } = useStudentProfile();
+
+  const { data: units = [], isLoading } = useQuery({
+    queryKey: [`/api/learning-content/${student?.id}`],
+    queryFn: async () => {
+      const res = await fetch(`/api/learning-content/${student?.id}`);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    enabled: !!student,
+  });
+
+  if (isLoading) {
+    return <Skeleton className="h-[200px]" />;
+  }
+
+  if (!units || units.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-center text-muted-foreground">No learning units available yet.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {units.map((unit: LearningUnit) => (
+        <Card key={unit.id}>
+          <CardHeader>
+            <CardTitle>{unit.title}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{unit.description}</p>
+            <Button className="mt-4" size="sm">
+              Start Learning <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
 
 interface LearningDashboardProps {
   student: Student;
