@@ -8,6 +8,12 @@ import {
   type Student 
 } from "@db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import {
+  getSubjectTemplate,
+  validateContent,
+  evaluateContent,
+  generateContentStructure
+} from "./templates/subject-templates";
 
 // Define curriculum structure by grade level
 const CURRICULUM_STANDARDS = {
@@ -190,45 +196,27 @@ async function generateGradeLevelContent(grade: number, subject: string) {
 
 async function generateLearningContent(student: Student, subject: string, topic: any) {
   const gradeLevel = student.grade === 0 ? "kindergarten" : `grade ${student.grade}`;
+  const template = getSubjectTemplate(subject);
+
+  if (!template) {
+    throw new Error(`No template found for subject: ${subject}`);
+  }
 
   try {
+    const baseStructure = generateContentStructure(template);
+
     const prompt = `Create an engaging ${gradeLevel} lesson for ${subject}, topic: ${topic.topic}.
+    Use this exact structure:
+    ${JSON.stringify(baseStructure, null, 2)}
 
-    Standards: ${topic.standards.join(', ')}
-    Learning Objectives: ${topic.objectives.join(', ')}
-    Key Concepts: ${topic.concepts.join(', ')}
+    Consider these requirements:
+    - Standards: ${topic.standards.join(', ')}
+    - Learning Objectives: ${topic.objectives.join(', ')}
+    - Key Concepts: ${topic.concepts.join(', ')}
+    - Learning Style: ${student.learningStyle}
 
-    The student prefers ${student.learningStyle} learning style.
-
-    Format as JSON:
-    {
-      "title": "string",
-      "description": "string",
-      "content": {
-        "opening": {
-          "hook": "string",
-          "priorKnowledge": "string",
-          "objectives": ["string"]
-        },
-        "mainContent": {
-          "explanation": "string",
-          "examples": ["string"],
-          "activities": ["string"]
-        },
-        "practice": {
-          "guided": ["string"],
-          "independent": ["string"]
-        },
-        "assessment": {
-          "questions": ["string"],
-          "answers": ["string"]
-        },
-        "differentiation": {
-          "support": ["string"],
-          "extension": ["string"]
-        }
-      }
-    }`;
+    Follow these subject-specific requirements:
+    ${JSON.stringify(template.structure, null, 2)}`;
 
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
@@ -241,7 +229,7 @@ async function generateLearningContent(student: Student, subject: string, topic:
         messages: [
           {
             role: "system",
-            content: `You are an expert ${gradeLevel} teacher who creates engaging, age-appropriate content.`
+            content: `You are an expert ${gradeLevel} ${subject} teacher who creates engaging, standards-aligned curriculum content following specific templates and rubrics.`
           },
           {
             role: "user",
@@ -258,18 +246,36 @@ async function generateLearningContent(student: Student, subject: string, topic:
     const result = await response.json();
     const content = JSON.parse(result.choices[0].message.content);
 
-    // Calculate difficulty based on grade level and complexity
-    const difficulty = Math.min(Math.max(Math.floor(student.grade / 2) + 1, 1), 5);
+    // Validate generated content against template
+    if (!validateContent(content, template)) {
+      throw new Error("Generated content does not match template requirements");
+    }
 
-    // Estimate duration based on grade level and content type
+    // Evaluate content quality using rubric
+    const evaluation = evaluateContent(content, template.rubric);
+
+    // Calculate difficulty based on grade level and evaluation score
+    const difficulty = Math.min(
+      Math.max(
+        Math.floor(student.grade / 2) + Math.round(evaluation.score * 2),
+        1
+      ),
+      5
+    );
+
+    // Estimate duration based on grade level and content complexity
     const baseDuration = 20; // Base duration in minutes
-    const gradeFactor = Math.min(student.grade + 1, 12) / 6; // Scale duration with grade
-    const estimatedDuration = Math.round(baseDuration * gradeFactor);
+    const gradeFactor = Math.min(student.grade + 1, 12) / 6;
+    const complexityFactor = 1 + (evaluation.score - 0.5);
+    const estimatedDuration = Math.round(baseDuration * gradeFactor * complexityFactor);
 
     return {
-      title: content.title,
-      description: content.description,
-      content: JSON.stringify(content.content),
+      title: content.title || `${topic.topic} - ${subject}`,
+      description: content.description || `Learn about ${topic.topic}`,
+      content: JSON.stringify({
+        ...content,
+        evaluation: evaluation.feedback
+      }),
       standards: topic.standards,
       objectives: topic.objectives,
       difficulty,
@@ -277,32 +283,17 @@ async function generateLearningContent(student: Student, subject: string, topic:
     };
   } catch (error) {
     console.error("Error generating content:", error);
-    // Fallback content
+    // Fallback content with template structure
+    const fallbackContent = generateContentStructure(template);
     return {
       title: `${topic.topic} Basics`,
       description: `Introduction to ${topic.topic} for ${gradeLevel} students`,
       content: JSON.stringify({
-        opening: {
-          hook: `Let's learn about ${topic.topic}!`,
-          priorKnowledge: "What do you already know?",
-          objectives: topic.objectives
-        },
-        mainContent: {
-          explanation: `Today we will learn about ${topic.topic}.`,
-          examples: topic.concepts,
-          activities: ["Group activity", "Individual practice"]
-        },
-        practice: {
-          guided: ["Teacher-led practice"],
-          independent: ["Student worksheet"]
-        },
-        assessment: {
-          questions: ["Basic comprehension question"],
-          answers: ["Sample answer"]
-        },
-        differentiation: {
-          support: ["Simplified practice"],
-          extension: ["Challenge activity"]
+        ...fallbackContent,
+        evaluation: {
+          feedback: {
+            general: ["Automatically generated basic content due to error"]
+          }
         }
       }),
       standards: topic.standards,
