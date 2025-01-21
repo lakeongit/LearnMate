@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -12,6 +12,32 @@ export const users = pgTable("users", {
   learningStyle: text("learning_style"),
   subjects: text("subjects").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Learning goals table
+export const learningGoals = pgTable("learning_goals", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  subject: text("subject").notNull(),
+  topic: text("topic"),
+  targetDate: timestamp("target_date"),
+  status: text("status").default('active').notNull(), // active, completed, archived
+  difficulty: integer("difficulty"),
+  priority: integer("priority"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at"),
+});
+
+// Chat sessions for context tracking
+export const chatSessions = pgTable("chat_sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  learningGoalId: integer("learning_goal_id").references(() => learningGoals.id),
+  startTime: timestamp("start_time").defaultNow().notNull(),
+  endTime: timestamp("end_time"),
+  context: jsonb("context"), // Stores session context like current topic, learning preferences
+  metrics: jsonb("metrics"), // Stores engagement metrics, comprehension levels
+  status: text("status").default('active').notNull(), // active, completed, interrupted
 });
 
 // Learning units table
@@ -130,3 +156,14 @@ export const insertMotivationMetricSchema = createInsertSchema(motivationMetrics
 export const selectMotivationMetricSchema = createSelectSchema(motivationMetrics);
 export type MotivationMetric = typeof motivationMetrics.$inferSelect;
 export type NewMotivationMetric = typeof motivationMetrics.$inferInsert;
+
+// Add new schema types for learning goals and sessions
+export const insertLearningGoalSchema = createInsertSchema(learningGoals);
+export const selectLearningGoalSchema = createSelectSchema(learningGoals);
+export type LearningGoal = typeof learningGoals.$inferSelect;
+export type NewLearningGoal = typeof learningGoals.$inferInsert;
+
+export const insertChatSessionSchema = createInsertSchema(chatSessions);
+export const selectChatSessionSchema = createSelectSchema(chatSessions);
+export type ChatSession = typeof chatSessions.$inferSelect;
+export type NewChatSession = typeof chatSessions.$inferInsert;

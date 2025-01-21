@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useChat } from "@/hooks/use-chat";
 import { MessageBubble } from "./message-bubble";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AiTutorExplainer } from "./ai-tutor-explainer";
 
 interface ChatInterfaceProps {
   user: UserType;
@@ -31,9 +32,20 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
+  const [showTutorExplainer, setShowTutorExplainer] = useState(true);
   const { messages, metadata, sendMessage, updateLearningStyle, isLoading, clearMessages } = useChat(user.id);
   const { toast } = useToast();
   const [studyTimer, setStudyTimer] = useState(0);
+
+  // Send welcome message on first load
+  useEffect(() => {
+    if (messages.length === 0 && !isLoading) {
+      const welcomeMessage = `Hi ${user.name}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${user.subjects?.join(", ")}. Would you like to explore any of these subjects?`;
+      sendMessage(welcomeMessage, {
+        learningStyle: user.learningStyle,
+      });
+    }
+  }, [user, messages.length, isLoading, sendMessage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +92,12 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
 
   return (
     <div className="border rounded-lg h-[600px] flex flex-col bg-card shadow-lg">
+      {showTutorExplainer && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center p-4">
+          <AiTutorExplainer onDismiss={() => setShowTutorExplainer(false)} />
+        </div>
+      )}
+
       <div className="p-4 border-b flex items-center justify-between bg-primary/5">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2">
