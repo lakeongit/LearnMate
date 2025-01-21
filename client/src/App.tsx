@@ -28,12 +28,8 @@ function ProtectedRoute({ component: Component, requireAdmin }: ProtectedRoutePr
   }
 
   if (!student) {
-    return <AuthPage />;
-  }
-
-  // Check for admin access if required
-  if (requireAdmin && !student.role?.includes('admin')) {
-    return <NotFound />;
+    window.location.href = "/auth";
+    return null;
   }
 
   return (
@@ -49,21 +45,30 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <div className="min-h-screen bg-background">
           <Switch>
+            {/* Default route is the dashboard */}
             <Route path="/" component={() => <ProtectedRoute component={Home} />} />
+
+            {/* Learning unit route with params */}
             <Route 
               path="/learning/:id" 
               component={({ params }) => (
-                <ProtectedRoute component={() => <LearningUnit params={params} />} />
+                <ProtectedRoute component={() => <LearningUnit id={params.id} />} />
               )}
             />
+
+            {/* Auth page - unprotected */}
             <Route path="/auth" component={AuthPage} />
+
+            {/* Admin dashboard - protected and requires admin */}
             <Route 
-              path="/admin/dashboard" 
+              path="/admin" 
               component={() => (
                 <ProtectedRoute component={AdminDashboard} requireAdmin={true} />
               )}
             />
-            <Route component={NotFound} />
+
+            {/* Catch all other routes with 404 */}
+            <Route path="/:rest*" component={NotFound} />
           </Switch>
         </div>
         <Toaster />
