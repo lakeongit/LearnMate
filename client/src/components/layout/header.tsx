@@ -14,6 +14,7 @@ export function Header({ user }: HeaderProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { progress } = useStudentProgress(user.id);
+  const queryClient = useQueryClient();
 
   const handleLogout = async () => {
     try {

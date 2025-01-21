@@ -18,11 +18,19 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   const { messages, sendMessage, isLoading } = useChat(user.id);
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
-      sendMessage(input);
-      setInput("");
+      try {
+        await sendMessage(input);
+        setInput("");
+      } catch (error) {
+        toast({
+          title: "Error sending message",
+          description: "Please try logging out and back in",
+          variant: "destructive"
+        });
+      }
     }
   };
 
