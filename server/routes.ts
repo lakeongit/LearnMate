@@ -1,8 +1,5 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { db } from "@db";
-import { students, chats, learningProgress, learningUnits } from "@db/schema";
-import { eq, and, between, desc } from "drizzle-orm";
 import { setupChat } from "./chat";
 import { setupAuth } from "./auth";
 import { setupRecommendations } from "./recommendations";
@@ -50,8 +47,8 @@ export function registerRoutes(app: Express): Server {
     // For unknown errors, send generic message in production
     res.status(500).json({
       status: 'error',
-      message: process.env.NODE_ENV === 'production' 
-        ? 'Internal server error' 
+      message: process.env.NODE_ENV === 'production'
+        ? 'Internal server error'
         : err.message,
       ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
     });
@@ -105,7 +102,7 @@ export function registerRoutes(app: Express): Server {
   setupQuiz(app);
   setupAchievements(app);
   setupStudyPlaylist(app);
-  setupAdminRoutes(app);
+  setupAdminRoutes(app); // Make sure admin routes are properly registered
   setupErrorLogging(app);
 
   // Create HTTP server
