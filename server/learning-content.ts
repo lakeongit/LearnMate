@@ -9,15 +9,42 @@ import {
 } from "@db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
+const SUBJECTS_BY_GRADE = {
+  1: {
+    "Mathematics": ["Numbers & Counting", "Basic Addition", "Basic Subtraction", "Shapes & Patterns"],
+    "Reading": ["Phonics", "Sight Words", "Basic Comprehension", "Story Elements"],
+    "Science": ["Living Things", "Weather", "Five Senses", "Plant Life"],
+    "Social Studies": ["Family & Community", "Basic Geography", "Citizenship", "Calendar & Time"]
+  },
+  // Add more grades with appropriate subjects and topics
+  5: {
+    "Mathematics": ["Fractions & Decimals", "Problem Solving", "Geometry", "Data Analysis"],
+    "Reading": ["Reading Comprehension", "Literature Analysis", "Vocabulary Building", "Writing Skills"],
+    "Science": ["Ecosystems", "Matter & Energy", "Space & Solar System", "Human Body"],
+    "Social Studies": ["American History", "Geography", "Government", "Economics"]
+  },
+  8: {
+    "Mathematics": ["Algebra Foundations", "Linear Equations", "Statistics", "Scientific Notation"],
+    "Reading": ["Critical Analysis", "Research Skills", "Complex Literature", "Essay Writing"],
+    "Science": ["Chemistry Basics", "Physics Concepts", "Earth Science", "Life Science"],
+    "Social Studies": ["World History", "Civics", "Current Events", "Cultural Studies"]
+  }
+};
+
 async function generateLearningContent(student: Student, subject: string) {
+  const gradeContent = SUBJECTS_BY_GRADE[student.grade as keyof typeof SUBJECTS_BY_GRADE] || SUBJECTS_BY_GRADE[5];
+  const topics = gradeContent[subject as keyof typeof gradeContent] || [];
+
   const prompt = `Create an engaging educational content for a grade ${student.grade} student who prefers ${student.learningStyle} learning.
-  The content should be about ${subject} and include:
-  1. A clear title and description
+  The content should be about ${subject}, specifically covering the topic of ${topics[0]}.
+  Include:
+  1. A clear title and description suitable for grade ${student.grade}
   2. Main content broken into digestible sections
-  3. Interactive elements or exercises
+  3. Interactive elements or exercises appropriate for ${student.learningStyle} learners
   4. Visual aids or diagrams (described in text)
   5. Key takeaways or summary
-  
+  6. Real-world examples and applications
+
   Format the response as a JSON object with the following structure:
   {
     "title": "string",
@@ -25,36 +52,55 @@ async function generateLearningContent(student: Student, subject: string) {
     "content": "string (main content with markdown formatting)",
     "exercises": [{"question": "string", "answer": "string"}],
     "type": "text | interactive | video",
-    "estimatedDuration": number (in minutes)
+    "estimatedDuration": number (in minutes),
+    "difficulty": number (1-5 scale)
   }`;
 
-  const response = await fetch("https://api.perplexity.ai/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "llama-3.1-sonar-small-128k-online",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert educational content creator specializing in personalized learning materials."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-    }),
-  });
+  try {
+    const response = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-sonar-small-128k-online",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert educational content creator specializing in personalized learning materials for K-12 students."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error("Failed to generate learning content");
+    if (!response.ok) {
+      throw new Error(`Failed to generate learning content: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    let content;
+    try {
+      content = JSON.parse(result.choices[0].message.content);
+    } catch (e) {
+      console.error("Failed to parse API response:", result.choices[0].message.content);
+      throw new Error("Invalid content format received from API");
+    }
+
+    // Validate content structure
+    if (!content.title || !content.description || !content.content) {
+      throw new Error("Incomplete content received from API");
+    }
+
+    return content;
+  } catch (error) {
+    console.error("Error generating learning content:", error);
+    throw new Error("Failed to generate learning content. Please try again.");
   }
-
-  const result = await response.json();
-  return JSON.parse(result.choices[0].message.content);
 }
 
 export async function setupLearningContent(app: Express) {
@@ -72,56 +118,59 @@ export async function setupLearningContent(app: Express) {
         return res.status(403).json({ error: "Unauthorized access to learning content" });
       }
 
-      // Get current learning units or generate new ones
       const existingUnits = await db
         .select()
         .from(learningUnits)
-        .where(
-          and(
-            eq(learningUnits.grade, student.grade)
-          )
-        );
+        .where(eq(learningUnits.grade, student.grade));
 
       if (existingUnits.length === 0) {
         // Generate content for each subject
-        for (const subject of student.subjects) {
-          const content = await generateLearningContent(student, subject);
-          
-          // Create learning unit
-          const [unit] = await db
-            .insert(learningUnits)
-            .values({
-              subject,
-              title: content.title,
-              description: content.description,
-              grade: student.grade,
-              difficulty: 1, // Start with beginner level
-              estimatedDuration: content.estimatedDuration,
-            })
-            .returning();
+        const gradeContent = SUBJECTS_BY_GRADE[student.grade as keyof typeof SUBJECTS_BY_GRADE] || SUBJECTS_BY_GRADE[5];
 
-          // Create content module
-          await db
-            .insert(contentModules)
-            .values({
-              unitId: unit.id,
-              title: content.title,
-              content: content.content,
-              type: content.type,
-              learningStyle: student.learningStyle,
-              order: 1,
-            });
+        for (const subject of student.subjects) {
+          const topics = gradeContent[subject as keyof typeof gradeContent] || [];
+
+          for (const topic of topics) {
+            try {
+              const content = await generateLearningContent(student, subject);
+
+              // Create learning unit
+              const [unit] = await db
+                .insert(learningUnits)
+                .values({
+                  subject,
+                  title: content.title,
+                  description: content.description,
+                  grade: student.grade,
+                  difficulty: content.difficulty || 1,
+                  estimatedDuration: content.estimatedDuration || 30,
+                })
+                .returning();
+
+              // Create content module
+              await db
+                .insert(contentModules)
+                .values({
+                  unitId: unit.id,
+                  title: content.title,
+                  content: content.content,
+                  type: content.type || 'text',
+                  learningStyle: student.learningStyle,
+                  order: 1,
+                });
+            } catch (error) {
+              console.error(`Failed to generate content for ${subject} - ${topic}:`, error);
+              // Continue with other topics even if one fails
+              continue;
+            }
+          }
         }
 
         // Fetch the newly created units
         const newUnits = await db
           .select()
           .from(learningUnits)
-          .where(
-            and(
-              eq(learningUnits.grade, student.grade)
-            )
-          );
+          .where(eq(learningUnits.grade, student.grade));
 
         return res.json(newUnits);
       }
@@ -136,13 +185,12 @@ export async function setupLearningContent(app: Express) {
       // Return units with progress
       const unitsWithProgress = existingUnits.map(unit => ({
         ...unit,
-        progress: progress.filter(p => 
-          contentModules.some(m => m.unitId === unit.id && m.id === p.moduleId)
-        ),
+        progress: progress.filter(p => p.moduleId === unit.id)
       }));
 
       res.json(unitsWithProgress);
     } catch (error: any) {
+      console.error("Error in /api/learning-content/:studentId:", error);
       res.status(500).json({ error: error.message });
     }
   });
