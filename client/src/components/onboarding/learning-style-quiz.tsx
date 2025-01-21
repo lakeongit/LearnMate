@@ -59,6 +59,10 @@ interface LearningStyleQuizProps {
 }
 
 export function LearningStyleQuiz({ onComplete }: LearningStyleQuizProps) {
+  if (!onComplete) {
+    console.error("onComplete callback is required");
+    return null;
+  }
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const { toast } = useToast();

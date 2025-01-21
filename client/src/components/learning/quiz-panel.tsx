@@ -32,7 +32,14 @@ interface QuizPanelProps {
   onComplete?: () => void;
 }
 
-export function QuizPanel({ student, subject, topic, onComplete }: QuizPanelProps) {
+import { memo } from "react";
+
+export const QuizPanel = memo(function QuizPanel({ 
+  student, 
+  subject, 
+  topic, 
+  onComplete 
+}: QuizPanelProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [showResults, setShowResults] = useState(false);

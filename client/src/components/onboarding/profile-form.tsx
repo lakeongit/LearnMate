@@ -54,6 +54,7 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
       learningStyle: "visual",
       subjects: [],
     },
+    mode: "onChange"
   });
 
   const createProfile = useMutation({
