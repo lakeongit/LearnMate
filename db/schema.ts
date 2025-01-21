@@ -43,26 +43,39 @@ export const chats = pgTable("chats", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// User schemas
+export const recommendations = pgTable("recommendations", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  subject: text("subject").notNull(),
+  topic: text("topic").notNull(),
+  content: text("content").notNull(),
+  reason: text("reason").notNull(),
+  difficulty: integer("difficulty").notNull(), // 1-5 scale
+  isCompleted: boolean("is_completed").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
-// Student schemas
 export const insertStudentSchema = createInsertSchema(students);
 export const selectStudentSchema = createSelectSchema(students);
 export type Student = typeof students.$inferSelect;
 export type NewStudent = typeof students.$inferInsert;
 
-// Progress schemas
 export const insertProgressSchema = createInsertSchema(learningProgress);
 export const selectProgressSchema = createSelectSchema(learningProgress);
 export type Progress = typeof learningProgress.$inferSelect;
 export type NewProgress = typeof learningProgress.$inferInsert;
 
-// Chat schemas
 export const insertChatSchema = createInsertSchema(chats);
 export const selectChatSchema = createSelectSchema(chats);
 export type Chat = typeof chats.$inferSelect;
 export type NewChat = typeof chats.$inferInsert;
+
+export const insertRecommendationSchema = createInsertSchema(recommendations);
+export const selectRecommendationSchema = createSelectSchema(recommendations);
+export type Recommendation = typeof recommendations.$inferSelect;
+export type NewRecommendation = typeof recommendations.$inferInsert;

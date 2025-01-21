@@ -5,13 +5,14 @@ import { students, chats, learningProgress } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { setupChat } from "./chat";
 import { setupAuth } from "./auth";
+import { setupRecommendations } from "./recommendations";
 
 // Middleware to ensure user is authenticated
 const ensureAuthenticated = (req: Express.Request, res: Express.Response, next: Express.NextFunction) => {
   if (req.isAuthenticated()) {
     return next();
   }
-  res.status(401).send("Unauthorized");
+  res.status(401).json({ error: "Unauthorized" });
 };
 
 export function registerRoutes(app: Express): Server {
@@ -32,7 +33,7 @@ export function registerRoutes(app: Express): Server {
 
       res.json(student);
     } catch (error: any) {
-      res.status(400).send(error.message);
+      res.status(400).json({ error: error.message });
     }
   });
 
@@ -45,12 +46,12 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (!student) {
-        return res.status(404).send("Student profile not found");
+        return res.status(404).json({ error: "Student profile not found" });
       }
 
       res.json(student);
     } catch (error: any) {
-      res.status(400).send(error.message);
+      res.status(400).json({ error: error.message });
     }
   });
 
@@ -66,7 +67,7 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (!student || student.userId !== req.user!.id) {
-        return res.status(403).send("Unauthorized access to student progress");
+        return res.status(403).json({ error: "Unauthorized access to student progress" });
       }
 
       const progress = await db
@@ -84,7 +85,7 @@ export function registerRoutes(app: Express): Server {
         sessions: progress,
       });
     } catch (error: any) {
-      res.status(400).send(error.message);
+      res.status(400).json({ error: error.message });
     }
   });
 
@@ -100,7 +101,7 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (!student || student.userId !== req.user!.id) {
-        return res.status(403).send("Unauthorized access to chat history");
+        return res.status(403).json({ error: "Unauthorized access to chat history" });
       }
 
       const [chat] = await db
@@ -111,11 +112,12 @@ export function registerRoutes(app: Express): Server {
 
       res.json(chat?.messages || []);
     } catch (error: any) {
-      res.status(400).send(error.message);
+      res.status(400).json({ error: error.message });
     }
   });
 
   setupChat(app);
+  setupRecommendations(app);
 
   const httpServer = createServer(app);
   return httpServer;

@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useStudentProfile } from "@/hooks/use-student-profile";
 import { ChatInterface } from "@/components/chat/chat-interface";
 import { Header } from "@/components/layout/header";
+import { RecommendationsPanel } from "@/components/learning/recommendations-panel";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -30,7 +31,11 @@ export default function Home() {
             Ready for another 10-minute learning session?
           </p>
         </div>
-        <ChatInterface student={student} />
+
+        <div className="grid gap-8 lg:grid-cols-2">
+          <ChatInterface student={student} />
+          <RecommendationsPanel student={student} />
+        </div>
       </main>
     </div>
   );
