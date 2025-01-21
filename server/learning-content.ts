@@ -179,12 +179,64 @@ export async function setupLearningContent(app: Express) {
         return res.status(403).json({ error: "Unauthorized access to learning content" });
       }
 
+      // Get or create initial content for the student's grade
       const existingUnits = await db
         .select()
         .from(learningUnits)
         .where(eq(learningUnits.grade, student.grade));
 
       if (existingUnits.length === 0) {
+        // Create initial content for each subject
+        const gradeContent = SUBJECTS_BY_GRADE[student.grade as keyof typeof SUBJECTS_BY_GRADE];
+        if (gradeContent) {
+          for (const [subject, topics] of Object.entries(gradeContent)) {
+            // Create units for each topic
+            for (const topic of topics.slice(0, 5)) { // Start with first 5 topics per subject
+              const content = {
+                title: `${subject}: ${topic}`,
+                description: `Learn about ${topic} in ${subject} for grade ${student.grade}`,
+                content: `# ${topic}\n\nThis lesson covers key concepts in ${topic} for grade ${student.grade} students.`,
+                type: 'text',
+                difficulty: Math.floor(Math.random() * 3) + 1, // Random difficulty 1-3
+                estimatedDuration: 10
+              };
+
+              // Create learning unit
+              const [unit] = await db
+                .insert(learningUnits)
+                .values({
+                  subject,
+                  title: content.title,
+                  description: content.description,
+                  grade: student.grade,
+                  difficulty: content.difficulty,
+                  estimatedDuration: content.estimatedDuration,
+                })
+                .returning();
+
+              // Create content module
+              await db
+                .insert(contentModules)
+                .values({
+                  unitId: unit.id,
+                  title: content.title,
+                  content: content.content,
+                  type: content.type,
+                  learningStyle: student.learningStyle,
+                  order: 1,
+                });
+            }
+          }
+        }
+        
+        // Fetch the newly created units
+        const newUnits = await db
+          .select()
+          .from(learningUnits)
+          .where(eq(learningUnits.grade, student.grade));
+          
+        return res.json(newUnits);
+      }
         // Generate content for each subject
         const gradeContent = SUBJECTS_BY_GRADE[student.grade as keyof typeof SUBJECTS_BY_GRADE] || SUBJECTS_BY_GRADE[5];
 
