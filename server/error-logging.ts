@@ -3,6 +3,7 @@ import { log } from "./vite";
 
 // Error severity levels
 export enum ErrorSeverity {
+  DEBUG = "debug",
   INFO = "info",
   WARNING = "warning",
   ERROR = "error",
@@ -24,7 +25,18 @@ interface ErrorLog {
   requestBody?: any;
   requestQuery?: any;
   statusCode?: number;
+  memoryUsage?: NodeJS.MemoryUsage;
+  uptime?: number;
+  performanceMetrics?: {
+    heapUsed: number;
+    heapTotal: number;
+    external: number;
+    eventLoopDelay: number;
+  };
 }
+
+// Add debug configuration
+const DEBUG_MODE = process.env.NODE_ENV !== 'production';
 
 // Generate unique request ID
 function generateRequestId(): string {
@@ -33,13 +45,32 @@ function generateRequestId(): string {
 
 // Main error logging function
 export function logError(error: any, severity: ErrorSeverity, context?: Record<string, any>): void {
+  const memUsage = process.memoryUsage();
+  
   const errorLog: ErrorLog = {
     timestamp: new Date().toISOString(),
     severity,
     message: error.message || "Unknown error",
     stack: error.stack,
     context,
+    memoryUsage: memUsage,
+    uptime: process.uptime(),
+    performanceMetrics: {
+      heapUsed: memUsage.heapUsed / 1024 / 1024,
+      heapTotal: memUsage.heapTotal / 1024 / 1024,
+      external: memUsage.external / 1024 / 1024,
+      eventLoopDelay: 0, // Will be set if in debug mode
+    }
   };
+
+  // Add event loop delay in debug mode
+  if (DEBUG_MODE) {
+    const start = process.hrtime();
+    setImmediate(() => {
+      const [seconds, nanoseconds] = process.hrtime(start);
+      errorLog.performanceMetrics!.eventLoopDelay = seconds * 1000 + nanoseconds / 1000000;
+    });
+  }
 
   // Log to console with proper formatting based on severity
   const logPrefix = `[${errorLog.severity.toUpperCase()}]`;
@@ -56,6 +87,11 @@ export function logError(error: any, severity: ErrorSeverity, context?: Record<s
       break;
     case ErrorSeverity.INFO:
       console.info(`${logPrefix} ℹ️`, errorLog);
+      break;
+    case ErrorSeverity.DEBUG:
+      if (DEBUG_MODE) {
+        console.debug(`${logPrefix} 🔍`, errorLog);
+      }
       break;
   }
 
