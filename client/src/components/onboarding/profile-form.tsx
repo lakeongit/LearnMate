@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { LearningStyleQuiz } from "./learning-style-quiz";
 
@@ -41,9 +41,10 @@ const formSchema = z.object({
 
 interface ProfileFormProps {
   onComplete: () => void;
+  queryClient: any; // Assuming React Query client is available
 }
 
-export function ProfileForm({ onComplete }: ProfileFormProps) {
+export function ProfileForm({ onComplete, queryClient }: ProfileFormProps) {
   const { toast } = useToast();
   const [showQuiz, setShowQuiz] = useState(true);
   const form = useForm<z.infer<typeof formSchema>>({
@@ -60,7 +61,7 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
   const createProfile = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       console.log("Submitting profile data:", data);
-      
+
       const response = await fetch("/api/students/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -87,6 +88,8 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
         title: "Profile created!",
         description: "Let's start learning together.",
       });
+      // Invalidate profile cache to reload data
+      queryClient.invalidateQueries({ queryKey: ['/api/students/me'] });
       onComplete();
     },
     onError: (error) => {

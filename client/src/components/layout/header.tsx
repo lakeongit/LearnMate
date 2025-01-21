@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { LogOut, BookOpen } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useStudentProgress } from "@/hooks/use-student-progress";
+import { useStudentProfile } from "@/hooks/use-student-profile";
+import { useToast } from "@/hooks/use-toast";
 import type { Student } from "@db/schema";
 
 interface HeaderProps {
@@ -10,17 +12,28 @@ interface HeaderProps {
 }
 
 export function Header({ student }: HeaderProps) {
+  const { student: profileStudent } = useStudentProfile(); //Use student profile from hook.
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { progress } = useStudentProgress(student.id);
+  const { progress } = useStudentProgress(profileStudent.id);
 
-  const handleSignOut = async () => {
-    const response = await fetch("/api/students/logout", {
-      method: "POST",
-      credentials: "include",
-    });
-
-    if (response.ok) {
-      setLocation("/onboarding");
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("/api/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+      if (response.ok) {
+        toast({
+          title: "Logged out successfully"
+        });
+        setLocation("/auth");
+      }
+    } catch (error) {
+      toast({
+        title: "Error logging out",
+        variant: "destructive"
+      });
     }
   };
 
@@ -42,7 +55,7 @@ export function Header({ student }: HeaderProps) {
           </div>
         </div>
 
-        <Button variant="outline" size="sm" onClick={handleSignOut}>
+        <Button variant="outline" size="sm" onClick={handleLogout}>
           <LogOut className="h-4 w-4 mr-2" />
           Sign Out
         </Button>
