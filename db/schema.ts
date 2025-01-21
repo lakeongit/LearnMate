@@ -97,8 +97,8 @@ export const chatMessages = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    userCreatedIdx: table.index('chat_messages_user_id_idx', ['userId', 'createdAt']),
-    subjectIdx: table.index('chat_messages_subject_idx', ['subject'])
+    userCreatedIdx: table.index().on(['userId', 'createdAt']),
+    subjectIdx: table.index().on(['subject'])
   })
 );
 
