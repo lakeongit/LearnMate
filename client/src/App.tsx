@@ -31,7 +31,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={() => <ProtectedRoute component={Home} />} />
-      <Route path="/onboarding" component={() => <ProtectedRoute component={Onboarding} />} />
+      <Route path="/onboarding" component={Onboarding} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

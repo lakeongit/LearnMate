@@ -59,8 +59,13 @@ export default function AuthPage() {
         title: isLogin ? "Login successful" : "Registration successful",
         description: isLogin ? "Welcome back!" : "Let's set up your profile.",
       });
-      // Redirect to home for login, onboarding for register
-      setLocation(isLogin ? "/" : "/onboarding");
+
+      // After successful login, redirect to home page with chatbot
+      if (isLogin) {
+        setLocation("/");
+      } else {
+        setLocation("/onboarding");
+      }
     },
     onError: (error) => {
       toast({
