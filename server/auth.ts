@@ -105,7 +105,7 @@ export function setupAuth(app: Express) {
   // Register route
   app.post("/api/register", async (req, res) => {
     try {
-      const { username, password, ...studentData } = req.body;
+      const { username, password } = req.body;
 
       // Check if user exists
       const [existingUser] = await db
@@ -118,25 +118,19 @@ export function setupAuth(app: Express) {
         return res.status(400).send("Username already exists");
       }
 
-      // Create user
+      // Create user with hashed password
       const hashedPassword = await crypto.hash(password);
       const [user] = await db
         .insert(users)
         .values({ username, password: hashedPassword })
         .returning();
 
-      // Create associated student profile
-      const [student] = await db
-        .insert(students)
-        .values({ ...studentData, userId: user.id })
-        .returning();
-
-      // Log the user in
+      // Log the user in automatically
       req.login(user, (err) => {
         if (err) {
           return res.status(500).send("Error logging in after registration");
         }
-        res.json({ user, student });
+        res.json({ id: user.id, username: user.username });
       });
     } catch (error: any) {
       res.status(400).send(error.message);
@@ -156,7 +150,7 @@ export function setupAuth(app: Express) {
         if (err) {
           return next(err);
         }
-        return res.json({ message: "Login successful" });
+        return res.json({ id: user.id, username: user.username });
       });
     })(req, res, next);
   });

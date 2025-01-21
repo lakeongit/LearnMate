@@ -19,6 +19,23 @@ export function registerRoutes(app: Express): Server {
   setupAuth(app);
 
   // Protected routes
+  app.post("/api/students/profile", ensureAuthenticated, async (req, res) => {
+    try {
+      // Create student profile for the authenticated user
+      const [student] = await db
+        .insert(students)
+        .values({
+          ...req.body,
+          userId: req.user!.id,
+        })
+        .returning();
+
+      res.json(student);
+    } catch (error: any) {
+      res.status(400).send(error.message);
+    }
+  });
+
   app.get("/api/students/me", ensureAuthenticated, async (req, res) => {
     try {
       const [student] = await db
