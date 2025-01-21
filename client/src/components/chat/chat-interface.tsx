@@ -15,6 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AiTutorExplainer } from "./ai-tutor-explainer";
+import { useWebSocket } from "@/hooks/use-websocket";
+import { TypingIndicator } from "./typing-indicator";
 
 interface ChatInterfaceProps {
   user: UserType;
@@ -33,10 +35,17 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
   const [showTutorExplainer, setShowTutorExplainer] = useState(true);
+  const [isAiTyping, setIsAiTyping] = useState(false);
   const { messages, sendMessage, isLoading, clearMessages, metadata } = useChat(user.id);
   const { toast } = useToast();
   const [studyTimer, setStudyTimer] = useState(0);
   const [userLearningStyle, setUserLearningStyle] = useState(user.learningStyle || 'visual');
+
+  // Initialize WebSocket connection
+  useWebSocket({
+    userId: user.id,
+    onTypingStatusChange: (isTyping) => setIsAiTyping(isTyping),
+  });
 
   // Send welcome message on first load
   useEffect(() => {
@@ -203,6 +212,12 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
               />
             </div>
           ))}
+          {isAiTyping && (
+            <div className="flex items-start gap-3">
+              <Bot className="h-6 w-6 text-primary mt-1" />
+              <TypingIndicator visible={true} />
+            </div>
+          )}
         </div>
       </ScrollArea>
 
