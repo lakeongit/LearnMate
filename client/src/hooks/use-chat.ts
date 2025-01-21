@@ -24,23 +24,44 @@ type ChatSession = {
   };
 };
 
+const DEFAULT_SESSION: ChatSession = {
+  messages: [],
+  metadata: {
+    learningStyle: 'visual',
+    startTime: Date.now(),
+  },
+};
+
 export function useChat(studentId: number) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: chatSession = { messages: [], metadata: { learningStyle: 'visual', startTime: Date.now() } } } = useQuery<ChatSession>({
+  const { data: chatSession } = useQuery<ChatSession>({
     queryKey: ["/api/chats", studentId],
     queryFn: async () => {
       const res = await fetch(`/api/chats/${studentId}`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error(await res.text());
-      return res.json();
+      const data = await res.json();
+      return {
+        ...DEFAULT_SESSION,
+        ...data,
+        metadata: {
+          ...DEFAULT_SESSION.metadata,
+          ...(data?.metadata || {}),
+        },
+      };
     },
   });
 
   const sendMessage = useMutation({
     mutationFn: async ({ content, context }: { content: string; context?: Message["context"] }) => {
+      const currentSession = chatSession || DEFAULT_SESSION;
+      const sessionDuration = currentSession.metadata.startTime 
+        ? Math.floor((Date.now() - currentSession.metadata.startTime) / 1000)
+        : 0;
+
       const res = await fetch(`/api/chats/${studentId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -48,9 +69,7 @@ export function useChat(studentId: number) {
           content,
           context: {
             ...context,
-            sessionDuration: chatSession.metadata.startTime 
-              ? Math.floor((Date.now() - chatSession.metadata.startTime) / 1000)
-              : 0
+            sessionDuration,
           }
         }),
         credentials: "include",
@@ -104,8 +123,11 @@ export function useChat(studentId: number) {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/chats", studentId], {
-        messages: [],
-        metadata: { learningStyle: chatSession.metadata.learningStyle, startTime: Date.now() }
+        ...DEFAULT_SESSION,
+        metadata: {
+          ...DEFAULT_SESSION.metadata,
+          startTime: Date.now(),
+        },
       });
     },
   });
@@ -115,8 +137,8 @@ export function useChat(studentId: number) {
   };
 
   return {
-    messages: chatSession.messages,
-    metadata: chatSession.metadata,
+    messages: chatSession?.messages || DEFAULT_SESSION.messages,
+    metadata: chatSession?.metadata || DEFAULT_SESSION.metadata,
     sendMessage: (content: string, context?: Message["context"]) => 
       sendMessage.mutate({ content, context }),
     updateLearningStyle: (style: string) => updateLearningStyle.mutate(style),
