@@ -55,7 +55,7 @@ const quizQuestions = [
 ];
 
 interface LearningStyleQuizProps {
-  onComplete: (learningStyle: string) => void;
+  onComplete: (learningStyle: "visual" | "auditory" | "kinesthetic") => void;
 }
 
 export function LearningStyleQuiz({ onComplete }: LearningStyleQuizProps) {

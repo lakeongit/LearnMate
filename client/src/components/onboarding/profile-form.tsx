@@ -91,13 +91,22 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
     createProfile.mutate(data);
   };
 
-  const handleQuizComplete = (learningStyle: string) => {
-    form.setValue("learningStyle", learningStyle as "visual" | "auditory" | "kinesthetic");
-    setShowQuiz(false);
-    toast({
-      title: "Learning Style Determined!",
-      description: `You seem to be a ${learningStyle} learner. Let's customize your profile further.`,
-    });
+  const handleQuizComplete = (learningStyle: "visual" | "auditory" | "kinesthetic") => {
+    try {
+      form.setValue("learningStyle", learningStyle);
+      setShowQuiz(false);
+      toast({
+        title: "Learning Style Determined!",
+        description: `You seem to be a ${learningStyle} learner. Let's customize your profile further.`,
+      });
+    } catch (error) {
+      console.error("Error setting learning style:", error);
+      toast({
+        title: "Error",
+        description: "There was an error saving your learning style. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (showQuiz) {
