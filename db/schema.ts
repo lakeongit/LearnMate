@@ -62,20 +62,26 @@ export const learningUnits = pgTable("learning_units", {
 });
 
 // Content modules for learning units
-export const contentModules = pgTable("content_modules", {
-  id: serial("id").primaryKey(),
-  unitId: integer("unit_id").references(() => learningUnits.id).notNull(),
-  title: text("title").notNull(),
-  content: text("content").notNull(),
-  type: text("type").notNull(), // 'text', 'interactive', 'exercise'
-  order: integer("order").notNull(),
-  standards: text("standards").notNull(),
-  objectives: text("objectives").notNull(),
-  version: integer("version").default(1).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  lastModifiedAt: timestamp("last_modified_at"),
-  modifiedBy: integer("modified_by").references(() => users.id),
-}).index('content_modules_unit_order_idx', ['unitId', 'order']);
+export const contentModules = pgTable(
+  "content_modules", 
+  {
+    id: serial("id").primaryKey(),
+    unitId: integer("unit_id").references(() => learningUnits.id).notNull(),
+    title: text("title").notNull(),
+    content: text("content").notNull(),
+    type: text("type").notNull(), // 'text', 'interactive', 'exercise'
+    order: integer("order").notNull(),
+    standards: text("standards").notNull(),
+    objectives: text("objectives").notNull(),
+    version: integer("version").default(1).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastModifiedAt: timestamp("last_modified_at"),
+    modifiedBy: integer("modified_by").references(() => users.id),
+  },
+  (table) => ({
+    unitOrderIdx: pgTable.index('content_modules_unit_order_idx', ['unitId', 'order'])
+  })
+);
 
 // Chat messages for AI tutor
 export const chatMessages = pgTable("chat_messages", {
