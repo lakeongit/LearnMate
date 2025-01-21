@@ -119,7 +119,7 @@ export function useChat(studentId: number) {
     metadata: chatSession.metadata,
     sendMessage: (content: string, context?: Message["context"]) => 
       sendMessage.mutate({ content, context }),
-    updateLearningStyle: updateLearningStyle.mutate,
+    updateLearningStyle: (style: string) => updateLearningStyle.mutate(style),
     isLoading: sendMessage.isPending,
     clearMessages,
   };
