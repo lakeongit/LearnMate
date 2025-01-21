@@ -21,6 +21,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
+import { useState } from "react";
+import { LearningStyleQuiz } from "./learning-style-quiz";
 
 const subjects = [
   { id: "math", label: "Mathematics" },
@@ -43,6 +45,7 @@ interface ProfileFormProps {
 
 export function ProfileForm({ onComplete }: ProfileFormProps) {
   const { toast } = useToast();
+  const [showQuiz, setShowQuiz] = useState(true);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -88,6 +91,31 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
     createProfile.mutate(data);
   };
 
+  const handleQuizComplete = (learningStyle: string) => {
+    form.setValue("learningStyle", learningStyle as "visual" | "auditory" | "kinesthetic");
+    setShowQuiz(false);
+    toast({
+      title: "Learning Style Determined!",
+      description: `You seem to be a ${learningStyle} learner. Let's customize your profile further.`,
+    });
+  };
+
+  if (showQuiz) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center space-y-2 mb-6">
+          <h2 className="text-2xl font-semibold text-primary">
+            Let's Find Your Learning Style
+          </h2>
+          <p className="text-muted-foreground">
+            Answer these questions to help us personalize your learning experience.
+          </p>
+        </div>
+        <LearningStyleQuiz onComplete={handleQuizComplete} />
+      </div>
+    );
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -125,32 +153,6 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
                         Grade {i + 1}
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="learningStyle"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Learning Style</FormLabel>
-              <FormControl>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your learning style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="visual">Visual</SelectItem>
-                    <SelectItem value="auditory">Auditory</SelectItem>
-                    <SelectItem value="kinesthetic">Kinesthetic</SelectItem>
                   </SelectContent>
                 </Select>
               </FormControl>
