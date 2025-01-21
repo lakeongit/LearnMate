@@ -1,8 +1,9 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "@db";
 import { chatMessages, users } from "@db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { logError, ErrorSeverity } from "./error-logging";
+import { messageQueue } from "./queue/message-queue";
 
 export async function setupChat(app: Express) {
   // Middleware to ensure user is authenticated
@@ -13,97 +14,45 @@ export async function setupChat(app: Express) {
     next();
   };
 
-  // Get chat history for a user
-  app.get("/api/chats/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.params.userId);
+  // Message processor function
+  const processMessage = async (queuedMessage: any) => {
+    const { userId, content, context } = queuedMessage;
 
-      // Verify the user is requesting their own chat history
-      if (!req.user || req.user.id !== userId) {
-        return res.status(403).json({ error: "Unauthorized access to chat history" });
-      }
+    // Extract subject from message if present
+    const subjectMatch = content.match(/^\[(.*?)\]/);
+    const subject = subjectMatch ? subjectMatch[1] : "General";
+    const cleanContent = subjectMatch ? content.replace(subjectMatch[0], '').trim() : content;
 
-      const messages = await db.query.chatMessages.findMany({
-        where: eq(chatMessages.userId, userId),
-        orderBy: desc(chatMessages.createdAt),
-      });
+    // Store user message in database
+    const [userMessage] = await db
+      .insert(chatMessages)
+      .values({
+        userId: userId,
+        content: cleanContent,
+        role: 'user',
+        subject: subject,
+        context: context,
+        status: 'delivered',
+        createdAt: new Date(),
+      })
+      .returning();
 
-      // Format response with metadata
-      const response = {
-        messages,
-        metadata: {
-          learningStyle: req.user.learningStyle || 'visual',
-          startTime: Date.now(),
-        }
-      };
+    // Get user context for personalized responses
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
 
-      res.json(response);
-    } catch (error: any) {
-      logError(error, ErrorSeverity.ERROR, {
-        userId: req.user?.id,
-        action: 'fetch_chat_history'
-      });
-      res.status(500).json({ error: error.message });
+    if (!user) {
+      throw new Error("User not found");
     }
-  });
 
-  // Send a new message
-  app.post("/api/chats/:userId/messages", ensureAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      const { content, context } = req.body;
+    // Check for API key
+    if (!process.env.PERPLEXITY_API_KEY) {
+      throw new Error("AI service is not properly configured");
+    }
 
-      console.log("Processing chat message:", { userId, content, context });
-
-      // Verify the user is sending their own message
-      if (!req.user || req.user.id !== userId) {
-        return res.status(403).json({ error: "Unauthorized message send attempt" });
-      }
-
-      if (!content) {
-        return res.status(400).json({ error: "Message content is required" });
-      }
-
-      // Extract subject from message if present
-      const subjectMatch = content.match(/^\[(.*?)\]/);
-      const subject = subjectMatch ? subjectMatch[1] : "General";
-      const cleanContent = subjectMatch ? content.replace(subjectMatch[0], '').trim() : content;
-
-      // Store user message in database
-      const [userMessage] = await db
-        .insert(chatMessages)
-        .values({
-          userId: userId,
-          content: cleanContent,
-          role: 'user',
-          subject: subject,
-          context: context,
-          status: 'delivered',
-          createdAt: new Date(),
-        })
-        .returning();
-
-      console.log("User message stored:", userMessage);
-
-      // Get user context for personalized responses
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-      });
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Check for API key
-      if (!process.env.PERPLEXITY_API_KEY) {
-        console.error("Missing PERPLEXITY_API_KEY");
-        throw new Error("AI service is not properly configured. Contact administrator.");
-      }
-
-      console.log("Calling Perplexity API...");
-
-      // Prepare system message based on user profile and subject
-      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${context?.learningStyle || user.learningStyle || 'visual'} learning. 
+    // Prepare system message
+    const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${context?.learningStyle || user.learningStyle || 'visual'} learning. 
 You are actively teaching ${subject}. Your role is to:
 
 1. Provide academically rigorous, well-researched responses
@@ -119,88 +68,138 @@ You are actively teaching ${subject}. Your role is to:
 
 Remember: Every response should be academically sound and supported by reliable sources.`;
 
-      // Call Perplexity API with academic focus
-      const response = await fetch("https://api.perplexity.ai/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "llama-3.1-sonar-small-128k-online",
-          messages: [
-            { role: "system", content: systemMessage },
-            { role: "user", content: cleanContent },
-          ],
-          temperature: 0.2, // Lower temperature for more focused, academic responses
-          max_tokens: 1500,
-          search_domain_filter: ["scholar", "academic"], // Focus on academic sources
-          return_citations: true,
-          frequency_penalty: 1.2, // Encourage diverse vocabulary
-        }),
+    // Call Perplexity API
+    const response = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-sonar-small-128k-online",
+        messages: [
+          { role: "system", content: systemMessage },
+          { role: "user", content: cleanContent },
+        ],
+        temperature: 0.2,
+        max_tokens: 1500,
+        search_domain_filter: ["scholar", "academic"],
+        return_citations: true,
+        frequency_penalty: 1.2,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get AI response (${response.status})`);
+    }
+
+    const responseData = await response.json();
+
+    if (!responseData.choices?.[0]?.message?.content) {
+      throw new Error("Invalid response format from API");
+    }
+
+    // Format response with citations
+    let formattedResponse = responseData.choices[0].message.content;
+    if (responseData.citations?.length > 0) {
+      formattedResponse += "\n\n### Sources:\n";
+      responseData.citations.forEach((citation: string, index: number) => {
+        formattedResponse += `${index + 1}. ${citation}\n`;
+      });
+    }
+
+    // Store AI response in database
+    const [assistantMessage] = await db
+      .insert(chatMessages)
+      .values({
+        userId: userId,
+        content: formattedResponse,
+        role: 'assistant',
+        subject: subject,
+        context: context,
+        status: 'delivered',
+        createdAt: new Date(),
+      })
+      .returning();
+
+    return { userMessage, assistantMessage };
+  };
+
+  // Start the message queue processor
+  messageQueue.start(processMessage);
+
+  // Get chat history for a user
+  app.get("/api/chats/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+
+      if (!req.user || req.user.id !== userId) {
+        return res.status(403).json({ error: "Unauthorized access to chat history" });
+      }
+
+      const messages = await db.query.chatMessages.findMany({
+        where: eq(chatMessages.userId, userId),
+        orderBy: desc(chatMessages.createdAt),
       });
 
-      console.log("API Response status:", response.status);
+      res.json({
+        messages,
+        metadata: {
+          learningStyle: req.user.learningStyle || 'visual',
+          startTime: Date.now(),
+        }
+      });
+    } catch (error: any) {
+      logError(error, ErrorSeverity.ERROR, {
+        userId: req.user?.id,
+        action: 'fetch_chat_history'
+      });
+      res.status(500).json({ error: error.message });
+    }
+  });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Perplexity API error:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
+  // Send a new message
+  app.post("/api/chats/:userId/messages", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { content, context } = req.body;
 
-        // Store error message in database
-        await db
-          .insert(chatMessages)
-          .values({
-            userId: userId,
-            content: "Sorry, I encountered an error. Please try again.",
-            role: 'assistant',
-            subject: subject,
-            context: context,
-            status: 'error',
-            createdAt: new Date(),
-          });
-
-        throw new Error(`Failed to get AI response (${response.status}). Please try again.`);
+      if (!req.user || req.user.id !== userId) {
+        return res.status(403).json({ error: "Unauthorized message send attempt" });
       }
 
-      const responseData = await response.json();
-      console.log("API Response data:", responseData);
-
-      if (!responseData.choices?.[0]?.message?.content) {
-        throw new Error("Invalid response format from API");
+      if (!content) {
+        return res.status(400).json({ error: "Message content is required" });
       }
 
-      // Format response with citations if available
-      let formattedResponse = responseData.choices[0].message.content;
-      if (responseData.citations?.length > 0) {
-        formattedResponse += "\n\n### Sources:\n";
-        responseData.citations.forEach((citation: string, index: number) => {
-          formattedResponse += `${index + 1}. ${citation}\n`;
-        });
+      // Enqueue the message
+      const messageId = await messageQueue.enqueue(userId, content, context);
+
+      // Wait for processing to complete (with timeout)
+      let attempts = 0;
+      const maxAttempts = 30; // 30 seconds timeout
+      let result = null;
+
+      while (attempts < maxAttempts) {
+        const status = await messageQueue.getStatus(messageId);
+        if (status?.status === 'completed') {
+          result = status;
+          break;
+        }
+        if (status?.status === 'failed') {
+          throw new Error("Failed to process message");
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
       }
 
-      // Store AI response in database
-      const [assistantMessage] = await db
-        .insert(chatMessages)
-        .values({
-          userId: userId,
-          content: formattedResponse,
-          role: 'assistant',
-          subject: subject,
-          context: context,
-          status: 'delivered',
-          createdAt: new Date(),
-        })
-        .returning();
-
-      console.log("Assistant message stored:", assistantMessage);
+      if (!result) {
+        throw new Error("Message processing timed out");
+      }
 
       // Return both messages with metadata
       res.json({
-        messages: [userMessage, assistantMessage],
+        messages: [result.userMessage, result.assistantMessage],
         metadata: {
           ...context,
           startTime: Date.now(),
