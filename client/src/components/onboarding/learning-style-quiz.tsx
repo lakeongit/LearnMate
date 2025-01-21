@@ -113,11 +113,20 @@ export function LearningStyleQuiz({ onComplete }: LearningStyleQuizProps) {
     <Card>
       <CardContent className="pt-6">
         <div className="space-y-6">
-          <div className="space-y-2">
-            <h3 className="font-medium text-lg">
-              Question {currentQuestion + 1} of {quizQuestions.length}
-            </h3>
-            <p className="text-muted-foreground">{question.question}</p>
+          <div className="flex justify-between items-center">
+            <div className="space-y-2">
+              <h3 className="font-medium text-lg">
+                Question {currentQuestion + 1} of {quizQuestions.length}
+              </h3>
+              <p className="text-muted-foreground">{question.question}</p>
+            </div>
+            <Button 
+              variant="ghost" 
+              onClick={() => onComplete('visual')}
+              className="text-muted-foreground"
+            >
+              Skip Quiz
+            </Button>
           </div>
 
           <RadioGroup
