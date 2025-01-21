@@ -49,5 +49,6 @@ export function useChat(studentId: number) {
     messages,
     sendMessage: sendMessage.mutate,
     isLoading: sendMessage.isPending,
+    clearMessages: () => queryClient.setQueryData(["/api/chats", studentId], [])
   };
 }

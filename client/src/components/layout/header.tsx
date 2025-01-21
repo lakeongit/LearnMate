@@ -22,6 +22,8 @@ export function Header({ user }: HeaderProps) {
         credentials: "include"
       });
       if (response.ok) {
+        // Clear chat messages from cache
+        queryClient.setQueryData(["/api/chats", user.id], []);
         toast({
           title: "Logged out successfully"
         });
