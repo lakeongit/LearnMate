@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -15,25 +15,21 @@ export const users = pgTable("users", {
 });
 
 // Learning goals table
-export const learningGoals = pgTable(
-  "learning_goals",
-  {
-    id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id).notNull(),
-    subject: text("subject").notNull(),
-    topic: text("topic"),
-    targetDate: timestamp("target_date"),
-    status: text("status").default('active').notNull(), // active, completed, archived
-    difficulty: integer("difficulty"),
-    priority: integer("priority"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at"),
-    deletedAt: timestamp("deleted_at"),
-  },
-  (table) => ({
-    userStatusIdx: table.index('learning_goals_user_status_idx', ['userId', 'status'])
-  })
-);
+export const learningGoals = pgTable("learning_goals", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  subject: text("subject").notNull(),
+  topic: text("topic"),
+  targetDate: timestamp("target_date"),
+  status: text("status").default('active').notNull(), // active, completed, archived
+  difficulty: integer("difficulty"),
+  priority: integer("priority"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at"),
+  deletedAt: timestamp("deleted_at"),
+}, (table) => ({
+  userStatusIdx: index("learning_goals_user_status_idx").on(table.userId, table.status)
+}));
 
 // Chat sessions for context tracking
 export const chatSessions = pgTable("chat_sessions", {
@@ -62,51 +58,37 @@ export const learningUnits = pgTable("learning_units", {
 });
 
 // Content modules for learning units
-export const contentModules = pgTable(
-  "content_modules", 
-  {
-    id: serial("id").primaryKey(),
-    unitId: integer("unit_id").references(() => learningUnits.id).notNull(),
-    title: text("title").notNull(),
-    content: text("content").notNull(),
-    type: text("type").notNull(), // 'text', 'interactive', 'exercise'
-    order: integer("order").notNull(),
-    standards: text("standards").notNull(),
-    objectives: text("objectives").notNull(),
-    version: integer("version").default(1).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    lastModifiedAt: timestamp("last_modified_at"),
-    modifiedBy: integer("modified_by").references(() => users.id),
-  },
-  (table) => ({
-    unitOrderIdx: table.index('content_modules_unit_order_idx', ['unitId', 'order'])
-  })
-);
+export const contentModules = pgTable("content_modules", {
+  id: serial("id").primaryKey(),
+  unitId: integer("unit_id").references(() => learningUnits.id).notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  type: text("type").notNull(), // 'text', 'interactive', 'exercise'
+  order: integer("order").notNull(),
+  standards: text("standards").notNull(),
+  objectives: text("objectives").notNull(),
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastModifiedAt: timestamp("last_modified_at"),
+  modifiedBy: integer("modified_by").references(() => users.id),
+}, (table) => ({
+  unitOrderIdx: index("content_modules_unit_order_idx").on(table.unitId, table.order)
+}));
 
 // Chat messages for AI tutor
-export const chatMessages = pgTable(
-  "chat_messages",
-  {
-    id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => users.id).notNull(),
-    content: text("content").notNull(),
-    role: text("role").notNull(), // 'user' or 'assistant'
-    status: text("status"), // 'sending', 'delivered', 'error'
-    subject: text("subject"),
-    context: jsonb("context"), // Stores learning style, session duration, etc.
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => ({
-    userCreatedIdx: table.index().on(['userId', 'createdAt']),
-    subjectIdx: table.index().on(['subject'])
-  })
-);
-
-// Update the message schema types
-export const insertChatMessageSchema = createInsertSchema(chatMessages);
-export const selectChatMessageSchema = createSelectSchema(chatMessages);
-export type ChatMessage = typeof chatMessages.$inferSelect;
-export type NewChatMessage = typeof chatMessages.$inferInsert;
+export const chatMessages = pgTable("chat_messages", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  role: text("role").notNull(), // 'user' or 'assistant'
+  status: text("status"), // 'sending', 'delivered', 'error'
+  subject: text("subject"),
+  context: jsonb("context"), // Stores learning style, session duration, etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userCreatedIdx: index("chat_messages_user_created_idx").on(table.userId, table.createdAt),
+  subjectIdx: index("chat_messages_subject_idx").on(table.subject)
+}));
 
 // Learning progress tracking
 export const learningProgress = pgTable("learning_progress", {
@@ -164,7 +146,6 @@ export const selectModuleSchema = createSelectSchema(contentModules);
 export type ContentModule = typeof contentModules.$inferSelect;
 export type NewContentModule = typeof contentModules.$inferInsert;
 
-
 export const insertProgressSchema = createInsertSchema(learningProgress);
 export const selectProgressSchema = createSelectSchema(learningProgress);
 export type LearningProgress = typeof learningProgress.$inferSelect;
@@ -184,6 +165,12 @@ export const insertMotivationMetricSchema = createInsertSchema(motivationMetrics
 export const selectMotivationMetricSchema = createSelectSchema(motivationMetrics);
 export type MotivationMetric = typeof motivationMetrics.$inferSelect;
 export type NewMotivationMetric = typeof motivationMetrics.$inferInsert;
+
+// Add new schema types for chat messages
+export const insertChatMessageSchema = createInsertSchema(chatMessages);
+export const selectChatMessageSchema = createSelectSchema(chatMessages);
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type NewChatMessage = typeof chatMessages.$inferInsert;
 
 // Add new schema types for learning goals and sessions
 export const insertLearningGoalSchema = createInsertSchema(learningGoals);
