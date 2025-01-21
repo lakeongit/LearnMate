@@ -291,7 +291,12 @@ const SUBJECT_TEMPLATES = {
   }
 };
 
-async function generateGradeLevelContent(grade: number, subject: string) {
+async function generateGradeLevelContent(grade: keyof typeof CURRICULUM_STANDARDS, subject: keyof (typeof CURRICULUM_STANDARDS)[0]): Promise<Array<{
+  topic: string;
+  standards: string[];
+  objectives: string[];
+  concepts: string[];
+}>> {
   // Generate grade-specific curriculum if not predefined
   if (!CURRICULUM_STANDARDS[grade]) {
     const gradeLevel = grade === 0 ? "kindergarten" : `grade ${grade}`;
@@ -322,7 +327,6 @@ async function generateGradeLevelContent(grade: number, subject: string) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json",
           Authorization: `Bearer ${process.env.PERPLEXITY_API_KEY}`,
         },
         body: JSON.stringify({
@@ -356,8 +360,13 @@ async function generateGradeLevelContent(grade: number, subject: string) {
         throw new Error("Invalid response format from API");
       }
 
-      const curriculum = JSON.parse(result.choices[0].message.content);
-      return curriculum.topics;
+      try {
+        const curriculum = JSON.parse(result.choices[0].message.content);
+        return curriculum.topics;
+      } catch (parseError) {
+        console.error("Error parsing API response:", parseError);
+        throw new Error("Failed to parse curriculum content");
+      }
     } catch (error) {
       console.error(`Error generating curriculum for grade ${grade}:`, error);
       // Return basic template if AI generation fails
@@ -373,9 +382,32 @@ async function generateGradeLevelContent(grade: number, subject: string) {
   return CURRICULUM_STANDARDS[grade]?.[subject] || [];
 }
 
-async function generateLearningContent(user: any, subject: string, topic: any) {
+interface ContentTemplate {
+  structure: Record<string, {
+    required: boolean;
+    description: string;
+    [key: string]: any;
+  }>;
+  rubric: Record<string, { weight: number }>;
+}
+
+interface GeneratedContent {
+  title: string;
+  description: string;
+  content: string;
+  standards: string[];
+  objectives: string[];
+  difficulty: number;
+  estimatedDuration: number;
+}
+
+async function generateLearningContent(
+  user: { grade: number; learningStyle: string },
+  subject: string,
+  topic: { topic: string; standards: string[]; objectives: string[]; concepts: string[] }
+): Promise<GeneratedContent> {
   const gradeLevel = user.grade === 0 ? "kindergarten" : `grade ${user.grade}`;
-  const template = getSubjectTemplate(subject);
+  const template = getSubjectTemplate(subject) as ContentTemplate;
 
   if (!template) {
     throw new Error(`No template found for subject: ${subject}`);
@@ -392,7 +424,7 @@ async function generateLearningContent(user: any, subject: string, topic: any) {
     - Standards: ${topic.standards.join(', ')}
     - Learning Objectives: ${topic.objectives.join(', ')}
     - Key Concepts: ${topic.concepts.join(', ')}
-    - Learning Style: ${user.learningStyle}
+    - Learning Style: ${user.learningStyle || 'visual'}
 
     Follow these subject-specific requirements:
     ${JSON.stringify(template.structure, null, 2)}`;
@@ -414,7 +446,8 @@ async function generateLearningContent(user: any, subject: string, topic: any) {
             role: "user",
             content: prompt
           }
-        ]
+        ],
+        temperature: 0.7,
       }),
     });
 
@@ -423,7 +456,13 @@ async function generateLearningContent(user: any, subject: string, topic: any) {
     }
 
     const result = await response.json();
-    const content = JSON.parse(result.choices[0].message.content);
+    let content;
+    try {
+      content = JSON.parse(result.choices[0].message.content);
+    } catch (parseError) {
+      console.error("Error parsing content:", parseError);
+      throw new Error("Failed to parse generated content");
+    }
 
     // Validate generated content against template
     if (!validateContent(content, template)) {
@@ -482,7 +521,6 @@ async function generateLearningContent(user: any, subject: string, topic: any) {
     };
   }
 }
-
 
 export async function setupLearningContent(app: Express) {
   app.get("/api/learning-content/:userId", async (req, res) => {
@@ -621,7 +659,7 @@ export async function setupLearningContent(app: Express) {
   });
 }
 
-function getSubjectTemplate(subject: string) {
+function getSubjectTemplate(subject: string): ContentTemplate | undefined {
   return SUBJECT_TEMPLATES[subject] || {
     structure: {
       introduction: {
@@ -665,20 +703,20 @@ function validateContent(content: any, template: any): boolean {
     const sectionTemplate = template.structure[section];
     if (!sectionTemplate) continue;
 
-    if (sectionTemplate.minimumWords && 
-        (!Array.isArray(data.words) || data.words.length < sectionTemplate.minimumWords)) {
+    if (sectionTemplate.minimumWords &&
+      (!Array.isArray(data.words) || data.words.length < sectionTemplate.minimumWords)) {
       console.warn(`Section ${section} does not meet minimum words requirement`);
       return false;
     }
 
-    if (sectionTemplate.minimumExamples && 
-        (!Array.isArray(data.examples) || data.examples.length < sectionTemplate.minimumExamples)) {
+    if (sectionTemplate.minimumExamples &&
+      (!Array.isArray(data.examples) || data.examples.length < sectionTemplate.minimumExamples)) {
       console.warn(`Section ${section} does not meet minimum examples requirement`);
       return false;
     }
 
-    if (sectionTemplate.minimumProblems && 
-        (!Array.isArray(data.problems) || data.problems.length < sectionTemplate.minimumProblems)) {
+    if (sectionTemplate.minimumProblems &&
+      (!Array.isArray(data.problems) || data.problems.length < sectionTemplate.minimumProblems)) {
       console.warn(`Section ${section} does not meet minimum problems requirement`);
       return false;
     }
@@ -766,8 +804,8 @@ function getCriterionFeedback(criterion: string, isStrength: boolean): string {
     }
   };
 
-  return feedbackMap[criterion]?.[isStrength ? 'strength' : 'improvement'] || 
-         `${isStrength ? 'Good' : 'Could improve'} ${criterion}`;
+  return feedbackMap[criterion]?.[isStrength ? 'strength' : 'improvement'] ||
+    `${isStrength ? 'Good' : 'Could improve'} ${criterion}`;
 }
 
 function generateContentStructure(template: any): any {
