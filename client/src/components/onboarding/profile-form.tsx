@@ -59,6 +59,8 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
 
   const createProfile = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
+      console.log("Submitting profile data:", data);
+      
       const response = await fetch("/api/students/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -67,10 +69,18 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
       });
 
       if (!response.ok) {
-        throw new Error(await response.text());
+        const errorText = await response.text();
+        console.error("Profile creation failed:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error(errorText);
       }
 
-      return response.json();
+      const result = await response.json();
+      console.log("Profile creation successful:", result);
+      return result;
     },
     onSuccess: () => {
       toast({

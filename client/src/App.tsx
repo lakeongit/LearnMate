@@ -58,10 +58,25 @@ function Router() {
   );
 }
 
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
+      <div className="min-h-screen bg-background">
+        <Switch>
+          <Route path="/" component={() => <ProtectedRoute component={Home} />} />
+          <Route 
+            path="/learning/:id" 
+            component={({ params }) => <ProtectedRoute component={() => <LearningUnit params={params} />} />}
+          />
+          <Route path="/onboarding" component={Onboarding} />
+          <Route path="/auth" component={AuthPage} />
+          <Route 
+            path="/admin/dashboard" 
+            component={() => <ProtectedRoute component={AdminDashboard} requireAdmin={true} />}
+          />
+          <Route component={NotFound} />
+        </Switch>
+      </div>
       <Toaster />
     </QueryClientProvider>
   );
