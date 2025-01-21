@@ -3,19 +3,17 @@ import { Button } from "@/components/ui/button";
 import { LogOut, BookOpen } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useStudentProgress } from "@/hooks/use-student-progress";
-import { useStudentProfile } from "@/hooks/use-student-profile";
 import { useToast } from "@/hooks/use-toast";
-import type { Student } from "@db/schema";
+import type { User } from "@db/schema";
 
 interface HeaderProps {
-  student: Student;
+  user: User;
 }
 
-export function Header({ student }: HeaderProps) {
-  const { student: profileStudent } = useStudentProfile(); //Use student profile from hook.
+export function Header({ user }: HeaderProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { progress } = useStudentProgress(profileStudent.id);
+  const { progress } = useStudentProgress(user.id);
 
   const handleLogout = async () => {
     try {
@@ -54,11 +52,16 @@ export function Header({ student }: HeaderProps) {
             <Progress value={progress?.mastery ?? 0} className="h-2" />
           </div>
         </div>
-        <ProfileSettings student={student} />
-        <Button variant="outline" size="sm" onClick={handleLogout}>
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign Out
-        </Button>
+
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium">
+            {user.name || user.username}
+          </span>
+          <Button variant="outline" size="sm" onClick={handleLogout}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
       </div>
     </header>
   );

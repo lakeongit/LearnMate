@@ -1,19 +1,23 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "@db";
 import { chatMessages, users } from "@db/schema";
 import { eq } from "drizzle-orm";
 
 export async function setupChat(app: Express) {
   // Middleware to ensure user is authenticated
-  const ensureAuthenticated = (req: any, res: any, next: any) => {
+  const ensureAuthenticated = (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated() || !req.user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
     next();
   };
 
-  app.post("/api/chat/messages", ensureAuthenticated, async (req, res) => {
+  app.post("/api/chat/messages", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
       const userId = req.user.id;
       const content = req.body.content;
 
@@ -38,8 +42,12 @@ export async function setupChat(app: Express) {
         .where(eq(users.id, userId))
         .limit(1);
 
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
       // Prepare system message based on user profile
-      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade} student who prefers ${user.learningStyle} learning. Keep explanations age-appropriate and engaging.`;
+      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${user.learningStyle || 'visual'} learning. Keep explanations age-appropriate and engaging.`;
 
       // Call Perplexity API
       const response = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -84,8 +92,12 @@ export async function setupChat(app: Express) {
   });
 
   // Get chat history
-  app.get("/api/chat/messages", ensureAuthenticated, async (req, res) => {
+  app.get("/api/chat/messages", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
       const messages = await db
         .select()
         .from(chatMessages)

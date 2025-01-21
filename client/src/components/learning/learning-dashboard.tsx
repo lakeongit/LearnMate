@@ -14,35 +14,29 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Student, LearningUnit } from "@db/schema";
-import { useStudentProfile } from "@/hooks/use-student-profile";
+import type { User, LearningUnit } from "@db/schema";
 
 interface LearningDashboardProps {
-  student?: Student;
+  user: User;
 }
 
-export function LearningDashboard({ student: propStudent }: LearningDashboardProps = {}) {
-  const { student: hookStudent } = useStudentProfile();
-  const student = propStudent || hookStudent;
-
+export function LearningDashboard({ user }: LearningDashboardProps) {
   const { data: insights, isLoading: isLoadingInsights } = useQuery({
-    queryKey: ["/api/progress", student?.id],
+    queryKey: ["/api/progress", user.id],
     queryFn: async () => {
-      const res = await fetch(`/api/progress/${student?.id}`);
+      const res = await fetch(`/api/progress/${user.id}`);
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
-    enabled: !!student,
   });
 
   const { data: units = [], isLoading: isLoadingUnits } = useQuery<(LearningUnit & { progress: any[] })[]>({
-    queryKey: [`/api/learning-content/${student?.id}`],
+    queryKey: [`/api/learning-content/${user.id}`],
     queryFn: async () => {
-      const res = await fetch(`/api/learning-content/${student?.id}`);
+      const res = await fetch(`/api/learning-content/${user.id}`);
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
-    enabled: !!student,
   });
 
   if (isLoadingInsights || isLoadingUnits) {
@@ -105,7 +99,7 @@ export function LearningDashboard({ student: propStudent }: LearningDashboardPro
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {recentSessions.reduce((sum, session) => sum + session.sessionDuration, 0)} mins
+              {recentSessions.reduce((sum: number, session: any) => sum + session.sessionDuration, 0)} mins
             </div>
             <p className="text-xs text-muted-foreground">Total learning time</p>
           </CardContent>

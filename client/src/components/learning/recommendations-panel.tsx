@@ -3,17 +3,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, BookOpen, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Student, Recommendation } from "@db/schema";
+import type { User } from "@db/schema";
 
 interface RecommendationsPanelProps {
-  student: Student;
+  user: User;
 }
 
-export function RecommendationsPanel({ student }: RecommendationsPanelProps) {
+interface Recommendation {
+  id: number;
+  subject: string;
+  topic: string;
+  content: string;
+  reason: string;
+  difficulty: number;
+}
+
+export function RecommendationsPanel({ user }: RecommendationsPanelProps) {
   const { data: recommendations, isLoading } = useQuery<Recommendation[]>({
-    queryKey: ["/api/recommendations", student.id],
+    queryKey: ["/api/recommendations", user.id],
     queryFn: async () => {
-      const res = await fetch(`/api/recommendations/${student.id}`);
+      const res = await fetch(`/api/recommendations/${user.id}`);
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },

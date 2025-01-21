@@ -33,10 +33,10 @@ declare global {
     interface User {
       id: number;
       username: string;
-      name?: string;
-      grade?: number;
-      learningStyle?: string;
-      subjects?: string[];
+      name: string | null;
+      grade: number | null;
+      learningStyle: string | null;
+      subjects: string[] | null;
       createdAt: Date;
     }
   }
@@ -86,7 +86,15 @@ export function setupAuth(app: Express) {
           return done(null, false, { message: "Incorrect password." });
         }
 
-        return done(null, user);
+        return done(null, {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          grade: user.grade,
+          learningStyle: user.learningStyle,
+          subjects: user.subjects,
+          createdAt: user.createdAt
+        });
       } catch (err) {
         return done(err);
       }
@@ -104,7 +112,20 @@ export function setupAuth(app: Express) {
         .from(users)
         .where(eq(users.id, id))
         .limit(1);
-      done(null, user);
+
+      if (!user) {
+        return done(new Error("User not found"));
+      }
+
+      done(null, {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        grade: user.grade,
+        learningStyle: user.learningStyle,
+        subjects: user.subjects,
+        createdAt: user.createdAt
+      });
     } catch (err) {
       done(err);
     }
@@ -132,14 +153,7 @@ export function setupAuth(app: Express) {
 
         return res.json({ 
           success: true,
-          user: { 
-            id: user.id, 
-            username: user.username,
-            name: user.name,
-            grade: user.grade,
-            learningStyle: user.learningStyle,
-            subjects: user.subjects
-          }
+          user
         });
       });
     })(req, res, next);
@@ -184,19 +198,28 @@ export function setupAuth(app: Express) {
         .returning();
 
       // Log the user in automatically
-      req.login(user, (err) => {
+      req.login({
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        grade: user.grade,
+        learningStyle: user.learningStyle,
+        subjects: user.subjects,
+        createdAt: user.createdAt
+      }, (err) => {
         if (err) {
           return res.status(500).json({ error: "Error logging in after registration" });
         }
         res.json({ 
           success: true,
-          user: { 
-            id: user.id, 
+          user: {
+            id: user.id,
             username: user.username,
             name: user.name,
             grade: user.grade,
             learningStyle: user.learningStyle,
-            subjects: user.subjects
+            subjects: user.subjects,
+            createdAt: user.createdAt
           }
         });
       });
