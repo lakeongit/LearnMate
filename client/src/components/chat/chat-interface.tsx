@@ -33,28 +33,28 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
   const [showTutorExplainer, setShowTutorExplainer] = useState(true);
-  const { messages, metadata, sendMessage, updateLearningStyle, isLoading, clearMessages } = useChat(user.id);
+  const { messages = [], metadata = { learningStyle: user.learningStyle || 'visual', startTime: Date.now() }, sendMessage, updateLearningStyle, isLoading, clearMessages } = useChat(user.id);
   const { toast } = useToast();
   const [studyTimer, setStudyTimer] = useState(0);
 
   // Send welcome message on first load
   useEffect(() => {
-    if (messages.length === 0 && !isLoading) {
-      const welcomeMessage = `Hi ${user.name}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${user.subjects?.join(", ")}. Would you like to explore any of these subjects?`;
+    if (messages && messages.length === 0 && !isLoading) {
+      const welcomeMessage = `Hi ${user.name}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${user.subjects?.join(", ") || "various subjects"}. Would you like to explore any of these subjects?`;
       sendMessage(welcomeMessage, {
-        learningStyle: user.learningStyle,
+        learningStyle: user.learningStyle || 'visual',
       });
     }
-  }, [user, messages.length, isLoading, sendMessage]);
+  }, [user, messages, isLoading, sendMessage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
       try {
         await sendMessage(input, {
-          subject: selectedSubject,
-          topic: selectedTopic,
-          learningStyle: user.learningStyle,
+          subject: selectedSubject || undefined,
+          topic: selectedTopic || undefined,
+          learningStyle: user.learningStyle || 'visual',
           sessionDuration: studyTimer
         });
         setInput("");
@@ -177,7 +177,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
 
       <ScrollArea className="flex-1 p-6">
         <div className="space-y-6 max-w-3xl mx-auto">
-          {messages.map((message, i) => (
+          {messages?.map((message, i) => (
             <div key={i} className="flex items-start gap-3">
               {message.role === 'assistant' && <Bot className="h-6 w-6 text-primary mt-1" />}
               {message.role === 'user' && <User className="h-6 w-6 text-muted-foreground mt-1" />}
