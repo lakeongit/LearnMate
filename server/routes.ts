@@ -68,24 +68,29 @@ export function registerRoutes(app: Express): Server {
   // Profile creation endpoint
   app.post("/api/students/profile", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = req.user!; // We can safely assert this due to ensureAuthenticated middleware
+      const user = req.user!;
       console.log("Received profile creation request:", req.body);
 
       // Validate required fields
-      if (!req.body.name || !req.body.grade || !req.body.learningStyle || !req.body.subjects) {
-        throw new AppError(400, "Missing required fields");
+      const { name, grade, learningStyle, subjects } = req.body;
+      if (!name || !grade || !learningStyle || !subjects) {
+        return res.status(400).json({ 
+          error: "Missing required fields",
+          details: "All fields (name, grade, learningStyle, subjects) are required"
+        });
       }
 
-      // Check for existing profile
-      const [existingProfile] = await db
+      // Check for existing profile first
+      const existingProfile = await db
         .select()
         .from(students)
-        .where(eq(students.userId, user.id));
+        .where(eq(students.userId, user.id))
+        .limit(1);
 
-      if (existingProfile) {
+      if (existingProfile.length > 0) {
         return res.status(400).json({
-          status: 'error',
-          message: "Profile already exists"
+          error: "Profile already exists",
+          details: "A profile for this user already exists in the system"
         });
       }
 
@@ -94,19 +99,20 @@ export function registerRoutes(app: Express): Server {
         .insert(students)
         .values({
           userId: user.id,
-          name: req.body.name,
-          grade: req.body.grade,
-          learningStyle: req.body.learningStyle,
-          subjects: req.body.subjects,
+          name,
+          grade,
+          learningStyle,
+          subjects,
         })
         .returning();
 
       console.log("Profile created successfully:", profile);
       res.status(201).json({
-        status: 'success',
+        message: "Profile created successfully",
         data: profile
       });
     } catch (error) {
+      console.error("Profile creation error:", error);
       next(error);
     }
   });

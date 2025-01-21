@@ -69,24 +69,28 @@ export function ProfileForm({ onComplete, queryClient }: ProfileFormProps) {
         credentials: "include",
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create profile");
+        console.error("Profile creation error:", responseData);
+        throw new Error(responseData.error || responseData.message || "Failed to create profile");
       }
 
-      return response.json();
+      return responseData;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Profile created successfully:", data);
       toast({
-        title: "Profile created!",
-        description: "Let's start learning together.",
+        title: "Welcome to EduChat AI!",
+        description: "Your profile has been created successfully. Let's start learning!",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/students/me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
       onComplete();
     },
     onError: (error: Error) => {
+      console.error("Profile creation error:", error);
       toast({
-        title: "Error creating profile",
+        title: "Could not create profile",
         description: error.message,
         variant: "destructive",
       });
