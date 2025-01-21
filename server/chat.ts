@@ -12,14 +12,39 @@ export async function setupChat(app: Express) {
     next();
   };
 
-  app.post("/api/chat/messages", ensureAuthenticated, async (req: Request, res: Response) => {
+  // Get chat history for a user
+  app.get("/api/chats/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Unauthorized" });
+      const userId = parseInt(req.params.userId);
+
+      // Verify the user is requesting their own chat history
+      if (!req.user || req.user.id !== userId) {
+        return res.status(403).json({ error: "Unauthorized access to chat history" });
       }
 
-      const userId = req.user.id;
-      const content = req.body.content;
+      const messages = await db
+        .select()
+        .from(chatMessages)
+        .where(eq(chatMessages.userId, userId))
+        .orderBy(chatMessages.createdAt);
+
+      res.json(messages);
+    } catch (error: any) {
+      console.error("Error fetching chat history:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Send a new message
+  app.post("/api/chats/:userId/messages", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { content } = req.body;
+
+      // Verify the user is sending their own message
+      if (!req.user || req.user.id !== userId) {
+        return res.status(403).json({ error: "Unauthorized message send attempt" });
+      }
 
       if (!content) {
         return res.status(400).json({ error: "Message content is required" });
@@ -47,7 +72,7 @@ export async function setupChat(app: Express) {
       }
 
       // Prepare system message based on user profile
-      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${user.learningStyle || 'visual'} learning. Keep explanations age-appropriate and engaging.`;
+      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${user.learningStyle || 'visual'} learning. Keep explanations age-appropriate and engaging. Break down complex concepts into simpler terms and provide examples when possible.`;
 
       if (!process.env.PERPLEXITY_API_KEY) {
         throw new Error("PERPLEXITY_API_KEY is not configured");
@@ -58,7 +83,6 @@ export async function setupChat(app: Express) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Accept: "application/json",
           Authorization: `Bearer ${process.env.PERPLEXITY_API_KEY}`,
         },
         body: JSON.stringify({
@@ -68,6 +92,7 @@ export async function setupChat(app: Express) {
             { role: "user", content },
           ],
           temperature: 0.7,
+          max_tokens: 1000,
         }),
       });
 
@@ -97,35 +122,13 @@ export async function setupChat(app: Express) {
         })
         .returning();
 
-      res.json({
-        messages: [userMessage, assistantMessage]
-      });
+      res.json([userMessage, assistantMessage]);
     } catch (error: any) {
       console.error("Chat error:", error);
       res.status(500).json({ 
         error: "Failed to process chat message", 
         details: error.message 
       });
-    }
-  });
-
-  // Get chat history
-  app.get("/api/chat/messages", ensureAuthenticated, async (req: Request, res: Response) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const messages = await db
-        .select()
-        .from(chatMessages)
-        .where(eq(chatMessages.userId, req.user.id))
-        .orderBy(chatMessages.createdAt);
-
-      res.json({ messages });
-    } catch (error: any) {
-      console.error("Error fetching chat history:", error);
-      res.status(500).json({ error: error.message });
     }
   });
 }

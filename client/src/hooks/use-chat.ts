@@ -13,7 +13,9 @@ export function useChat(studentId: number) {
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ["/api/chats", studentId],
     queryFn: async () => {
-      const res = await fetch(`/api/chats/${studentId}`);
+      const res = await fetch(`/api/chats/${studentId}`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
@@ -25,8 +27,9 @@ export function useChat(studentId: number) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
+        credentials: "include",
       });
-      
+
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
