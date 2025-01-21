@@ -84,17 +84,23 @@ export const contentModules = pgTable(
 );
 
 // Chat messages for AI tutor
-export const chatMessages = pgTable("chat_messages", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  content: text("content").notNull(),
-  role: text("role").notNull(), // 'user' or 'assistant'
-  status: text("status"), // 'sending', 'delivered', 'error'
-  subject: text("subject"),
-  context: jsonb("context"), // Stores learning style, session duration, etc.
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}).index('chat_messages_user_id_idx', ['userId', 'createdAt'])
-  .index('chat_messages_subject_idx', ['subject']);
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").references(() => users.id).notNull(),
+    content: text("content").notNull(),
+    role: text("role").notNull(), // 'user' or 'assistant'
+    status: text("status"), // 'sending', 'delivered', 'error'
+    subject: text("subject"),
+    context: jsonb("context"), // Stores learning style, session duration, etc.
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userCreatedIdx: pgTable.index('chat_messages_user_id_idx', ['userId', 'createdAt']),
+    subjectIdx: pgTable.index('chat_messages_subject_idx', ['subject'])
+  })
+);
 
 // Update the message schema types
 export const insertChatMessageSchema = createInsertSchema(chatMessages);
