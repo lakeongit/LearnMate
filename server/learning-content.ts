@@ -14,7 +14,8 @@ const SUBJECTS_BY_GRADE = {
     "Mathematics": [
       "Numbers 0-20", "Basic Counting", "Shape Recognition", "Pattern Making",
       "Size Comparison", "Sorting Objects", "One-to-One Correspondence", "Number Writing",
-      "Simple Addition", "Simple Subtraction", "Position Words", "Basic Measurement"
+      "Simple Addition", "Simple Subtraction", "Position Words", "Basic Measurement",
+      "Counting by 2s", "Number Sequencing", "3D Shapes", "Money Recognition"
     ],
     "Reading": [
       "Letter Recognition", "Letter Sounds", "Rhyming Words", "Sight Words",
@@ -102,7 +103,7 @@ async function generateLearningContent(student: Student, subject: string) {
   2. Main content in 2-3 short, focused sections (6 minutes total)
   3. One quick interactive exercise for ${student.learningStyle} learners (2 minutes)
   4. Key takeaways (1.5 minutes)
-  
+
   Keep all content brief and focused for a 10-minute attention span.
 
   Format the response as a JSON object with the following structure:

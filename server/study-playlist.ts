@@ -41,6 +41,44 @@ async function generateStudyPlaylist(student: Student) {
     return acc;
   }, {} as Record<string, { totalMastery: number; completedSessions: number; averageSessionTime: number; }>);
 
+  // Initialize learning units if none exist
+  const existingUnits = await db
+    .select()
+    .from(learningUnits)
+    .where(eq(learningUnits.grade, student.grade));
+
+  if (existingUnits.length === 0) {
+    // Create initial learning units
+    for (const subject of student.subjects) {
+      await db.insert(learningUnits).values([
+        {
+          subject,
+          title: `Introduction to ${subject}`,
+          description: `Foundational concepts in ${subject} for grade ${student.grade}`,
+          grade: student.grade,
+          difficulty: 1,
+          estimatedDuration: 10,
+        },
+        {
+          subject,
+          title: `${subject} Fundamentals`,
+          description: `Core principles and practice in ${subject}`,
+          grade: student.grade,
+          difficulty: 2,
+          estimatedDuration: 10,
+        },
+        {
+          subject,
+          title: `Advanced ${subject}`,
+          description: `Complex concepts and problem solving in ${subject}`,
+          grade: student.grade,
+          difficulty: 3,
+          estimatedDuration: 10,
+        }
+      ]);
+    }
+  }
+
   const prompt = `Return ONLY a valid JSON object with NO additional text, following this structure:
   {
     "playlist": [
