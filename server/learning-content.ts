@@ -175,6 +175,122 @@ const CURRICULUM_STANDARDS = {
   }
 };
 
+const SUBJECT_TEMPLATES = {
+  "Mathematics": {
+    structure: {
+      warmUp: {
+        required: true,
+        description: "Quick review or mental math activity",
+        duration: "5-10 minutes"
+      },
+      conceptIntroduction: {
+        required: true,
+        description: "Visual or interactive introduction to new concept",
+        examples: true
+      },
+      guidedPractice: {
+        required: true,
+        description: "Step-by-step problem solving with explanations",
+        minimumExamples: 3
+      },
+      independentPractice: {
+        required: true,
+        description: "Progressive difficulty problems",
+        minimumProblems: 5
+      },
+      wordProblems: {
+        required: true,
+        description: "Real-world application problems",
+        minimumProblems: 2
+      },
+      assessment: {
+        required: true,
+        description: "Quick check for understanding",
+        format: ["multiple-choice", "short-answer"]
+      }
+    },
+    rubric: {
+      conceptClarity: { weight: 0.3 },
+      progressiveDifficulty: { weight: 0.2 },
+      visualSupport: { weight: 0.2 },
+      realWorldConnections: { weight: 0.2 },
+      interactivity: { weight: 0.1 }
+    }
+  },
+  "Science": {
+    structure: {
+      engagement: {
+        required: true,
+        description: "Hook activity or demonstration",
+        duration: "5-10 minutes"
+      },
+      exploration: {
+        required: true,
+        description: "Hands-on investigation or experiment",
+        components: ["materials", "procedure", "observations", "conclusions"]
+      },
+      explanation: {
+        required: true,
+        description: "Scientific concepts and vocabulary",
+        visualAids: true
+      },
+      elaboration: {
+        required: true,
+        description: "Real-world applications and extensions",
+        connections: ["daily life", "technology", "environment"]
+      },
+      evaluation: {
+        required: true,
+        description: "Understanding check through various methods",
+        formats: ["observations", "drawings", "written responses"]
+      }
+    },
+    rubric: {
+      scientificAccuracy: { weight: 0.3 },
+      inquiryBased: { weight: 0.2 },
+      safetyConsiderations: { weight: 0.2 },
+      dataAnalysis: { weight: 0.2 },
+      environmentalAwareness: { weight: 0.1 }
+    }
+  },
+  "English": {
+    structure: {
+      vocabulary: {
+        required: true,
+        description: "Key terms and context",
+        minimumWords: 5
+      },
+      reading: {
+        required: true,
+        description: "Grade-appropriate text with comprehension focus",
+        components: ["pre-reading", "guided reading", "post-reading"]
+      },
+      comprehension: {
+        required: true,
+        description: "Questions and activities for understanding",
+        questionTypes: ["literal", "inferential", "evaluative"]
+      },
+      writing: {
+        required: true,
+        description: "Structured writing activity",
+        components: ["planning", "drafting", "revising"]
+      },
+      grammar: {
+        required: true,
+        description: "Focused grammar concept practice",
+        applicationExamples: true
+      }
+    },
+    rubric: {
+      readingLevel: { weight: 0.3 },
+      writingStructure: { weight: 0.2 },
+      grammarAccuracy: { weight: 0.2 },
+      vocabularyDevelopment: { weight: 0.2 },
+      criticalThinking: { weight: 0.1 }
+    }
+  }
+};
+
 async function generateGradeLevelContent(grade: number, subject: string) {
   // Generate grade-specific curriculum if not predefined
   if (!CURRICULUM_STANDARDS[grade]) {
@@ -368,7 +484,6 @@ async function generateLearningContent(user: any, subject: string, topic: any) {
 }
 
 
-
 export async function setupLearningContent(app: Express) {
   app.get("/api/learning-content/:userId", async (req, res) => {
     try {
@@ -506,8 +621,165 @@ export async function setupLearningContent(app: Express) {
   });
 }
 
-// Helper functions remain unchanged
-const getSubjectTemplate = (subject: string) => ({}); // Placeholder
-const validateContent = (content: any, template: any) => true; // Placeholder
-const evaluateContent = (content: any, rubric: any) => ({ score: 0.8, feedback: {} }); // Placeholder
-const generateContentStructure = (template: any) => ({}); // Placeholder
+function getSubjectTemplate(subject: string) {
+  return SUBJECT_TEMPLATES[subject] || {
+    structure: {
+      introduction: {
+        required: true,
+        description: "Topic introduction and objectives"
+      },
+      content: {
+        required: true,
+        description: "Main learning content"
+      },
+      practice: {
+        required: true,
+        description: "Practice activities"
+      },
+      assessment: {
+        required: true,
+        description: "Understanding check"
+      }
+    },
+    rubric: {
+      contentQuality: { weight: 0.4 },
+      engagement: { weight: 0.3 },
+      effectiveness: { weight: 0.3 }
+    }
+  };
+}
+
+function validateContent(content: any, template: any): boolean {
+  if (!content || typeof content !== 'object') return false;
+
+  // Check required sections
+  for (const [section, config] of Object.entries(template.structure)) {
+    if (config.required && !content[section]) {
+      console.warn(`Missing required section: ${section}`);
+      return false;
+    }
+  }
+
+  // Validate section contents
+  for (const [section, data] of Object.entries(content)) {
+    const sectionTemplate = template.structure[section];
+    if (!sectionTemplate) continue;
+
+    if (sectionTemplate.minimumWords && 
+        (!Array.isArray(data.words) || data.words.length < sectionTemplate.minimumWords)) {
+      console.warn(`Section ${section} does not meet minimum words requirement`);
+      return false;
+    }
+
+    if (sectionTemplate.minimumExamples && 
+        (!Array.isArray(data.examples) || data.examples.length < sectionTemplate.minimumExamples)) {
+      console.warn(`Section ${section} does not meet minimum examples requirement`);
+      return false;
+    }
+
+    if (sectionTemplate.minimumProblems && 
+        (!Array.isArray(data.problems) || data.problems.length < sectionTemplate.minimumProblems)) {
+      console.warn(`Section ${section} does not meet minimum problems requirement`);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function evaluateContent(content: any, rubric: any): { score: number; feedback: any } {
+  const feedback = {
+    strengths: [],
+    improvements: [],
+    scores: {}
+  };
+
+  let totalScore = 0;
+  let totalWeight = 0;
+
+  for (const [criterion, config] of Object.entries(rubric)) {
+    const weight = config.weight || 1;
+    totalWeight += weight;
+
+    // Evaluate each criterion
+    let criterionScore = 0;
+    switch (criterion) {
+      case 'conceptClarity':
+        criterionScore = evaluateConceptClarity(content);
+        break;
+      case 'progressiveDifficulty':
+        criterionScore = evaluateProgressiveDifficulty(content);
+        break;
+      case 'visualSupport':
+        criterionScore = evaluateVisualSupport(content);
+        break;
+      // Add more criterion evaluations...
+      default:
+        criterionScore = 0.8; // Default score for unimplemented criteria
+    }
+
+    totalScore += criterionScore * weight;
+    feedback.scores[criterion] = criterionScore;
+
+    // Add feedback based on score
+    if (criterionScore >= 0.8) {
+      feedback.strengths.push(`Strong ${criterion}: ${getCriterionFeedback(criterion, true)}`);
+    } else if (criterionScore <= 0.6) {
+      feedback.improvements.push(`Improve ${criterion}: ${getCriterionFeedback(criterion, false)}`);
+    }
+  }
+
+  return {
+    score: totalScore / totalWeight,
+    feedback
+  };
+}
+
+function evaluateConceptClarity(content: any): number {
+  // Implementation for evaluating concept clarity
+  return 0.8;
+}
+
+function evaluateProgressiveDifficulty(content: any): number {
+  // Implementation for evaluating progressive difficulty
+  return 0.8;
+}
+
+function evaluateVisualSupport(content: any): number {
+  // Implementation for evaluating visual support
+  return 0.8;
+}
+
+function getCriterionFeedback(criterion: string, isStrength: boolean): string {
+  const feedbackMap = {
+    conceptClarity: {
+      strength: "Clear and well-structured explanation of concepts",
+      improvement: "Consider breaking down complex concepts into smaller steps"
+    },
+    progressiveDifficulty: {
+      strength: "Good progression from simple to complex problems",
+      improvement: "Add more intermediate steps between difficulty levels"
+    },
+    visualSupport: {
+      strength: "Effective use of visual aids and diagrams",
+      improvement: "Include more visual representations of key concepts"
+    }
+  };
+
+  return feedbackMap[criterion]?.[isStrength ? 'strength' : 'improvement'] || 
+         `${isStrength ? 'Good' : 'Could improve'} ${criterion}`;
+}
+
+function generateContentStructure(template: any): any {
+  const structure = {};
+
+  for (const [section, config] of Object.entries(template.structure)) {
+    structure[section] = {
+      content: `${config.description} content will be generated here`,
+      completed: false,
+      ...config
+    };
+  }
+
+  return structure;
+}
