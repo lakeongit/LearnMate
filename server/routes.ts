@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { students, chats, learningProgress } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { students, chats, learningProgress, learningUnits } from "@db/schema";
+import { eq, and, between, desc } from "drizzle-orm";
 import { setupChat } from "./chat";
 import { setupAuth } from "./auth";
 import { setupRecommendations } from "./recommendations";
@@ -28,6 +28,51 @@ export function registerRoutes(app: Express): Server {
   setupQuiz(app);
   setupAchievements(app);
   setupStudyPlaylist(app);
+
+  // Add learning modules endpoint
+  app.get("/api/learning-modules", ensureAuthenticated, async (req, res) => {
+    try {
+      const studentId = parseInt(req.query.studentId as string);
+      const subject = req.query.subject as string;
+      const gradeMin = parseInt(req.query.gradeMin as string);
+      const gradeMax = parseInt(req.query.gradeMax as string);
+
+      // Verify the student belongs to the current user
+      const [student] = await db
+        .select()
+        .from(students)
+        .where(eq(students.id, studentId))
+        .limit(1);
+
+      if (!student || student.userId !== req.user!.id) {
+        return res.status(403).json({ error: "Unauthorized access to learning modules" });
+      }
+
+      // Build query based on filters
+      let query = db
+        .select()
+        .from(learningUnits)
+        .where(eq(learningUnits.grade, student.grade));
+
+      if (subject) {
+        query = query.where(eq(learningUnits.subject, subject));
+      }
+
+      if (!isNaN(gradeMin) && !isNaN(gradeMax)) {
+        query = query.where(
+          and(
+            between(learningUnits.grade, gradeMin, gradeMax)
+          )
+        );
+      }
+
+      const modules = await query.orderBy(desc(learningUnits.createdAt));
+      res.json(modules);
+    } catch (error: any) {
+      console.error("Error in /api/learning-modules:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   app.post("/api/students/profile", ensureAuthenticated, async (req, res) => {
     try {

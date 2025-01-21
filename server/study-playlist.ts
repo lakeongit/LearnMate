@@ -41,44 +41,44 @@ async function generateStudyPlaylist(student: Student) {
     return acc;
   }, {} as Record<string, { totalMastery: number; completedSessions: number; averageSessionTime: number; }>);
 
-  const prompt = `You must respond with a valid JSON object following this exact structure:
+  const prompt = `Return ONLY a valid JSON object with NO additional text, following this structure:
   {
     "playlist": [
       {
-        "subject": "subject name",
-        "topic": "topic name",
-        "suggestedDuration": 10,
-        "priority": 1,
-        "reason": "reason for recommendation",
+        "subject": "string - one of: ${student.subjects.join(", ")}",
+        "topic": "string",
+        "suggestedDuration": number,
+        "priority": number,
+        "reason": "string",
         "prerequisites": []
       }
     ],
-    "recommendedSchedule": {
-      "dailyStudyTime": 30,
-      "breakFrequency": 15,
-      "focusAreas": ["area1", "area2"]
+    "schedule": {
+      "dailyStudyTime": number,
+      "breakFrequency": number,
+      "focusAreas": ["string"]
     }
   }
 
-  Create a personalized adaptive study playlist for a grade ${student.grade} student with the following characteristics:
+  Consider these factors for the student:
+  - Grade Level: ${student.grade}
   - Learning Style: ${student.learningStyle}
   - Subjects: ${student.subjects.join(", ")}
-  - Current Progress:
-    ${Object.entries(subjectMastery).map(([subject, data]) => 
+  - Progress by Subject:
+  ${Object.entries(subjectMastery)
+    .map(([subject, data]) => 
       `${subject}: ${Math.round(data.totalMastery / data.completedSessions)}% mastery, ` +
-      `${data.completedSessions} completed sessions, ` +
-      `average session time: ${Math.round(data.averageSessionTime)} minutes`
-    ).join("\n    ")}
+      `${data.completedSessions} completed sessions`
+    )
+    .join("\n")}
 
-  Requirements:
-  1. Adapt lesson durations based on the student's average session times
-  2. Prioritize subjects with lower mastery levels
-  3. Consider the student's learning style when suggesting topics
-  4. Mix review sessions for high-mastery subjects with new content
-  5. Include foundational topics for subjects with low completion rates
-  6. Suggest shorter, more frequent sessions for subjects with lower engagement
-
-  Format the response as a JSON object with the specified structure above.`;
+  Rules:
+  1. Return ONLY the JSON object, no other text
+  2. All number values must be actual numbers, not strings
+  3. Priority should be between 1 and 5
+  4. Suggested duration should be between 10 and 30 minutes
+  5. Daily study time should be between 30 and 120 minutes
+  6. Break frequency should be between 15 and 30 minutes`;
 
   try {
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -92,7 +92,7 @@ async function generateStudyPlaylist(student: Student) {
         messages: [
           {
             role: "system",
-            content: "You are an expert educational AI specializing in creating personalized adaptive learning paths."
+            content: "You are a JSON-only response bot. You must return only valid JSON objects with no additional text or explanation."
           },
           {
             role: "user",
@@ -107,7 +107,13 @@ async function generateStudyPlaylist(student: Student) {
     }
 
     const result = await response.json();
-    const content = JSON.parse(result.choices[0].message.content);
+    let content;
+    try {
+      content = JSON.parse(result.choices[0].message.content.trim());
+    } catch (e) {
+      console.error("Failed to parse API response:", result.choices[0].message.content);
+      throw new Error("Invalid content format received from API");
+    }
 
     // Map the AI recommendations to actual learning units with prerequisites
     const playlist = [];
