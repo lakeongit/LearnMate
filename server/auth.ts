@@ -107,6 +107,10 @@ export function setupAuth(app: Express) {
     try {
       const { username, password } = req.body;
 
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+
       // Check if user exists
       const [existingUser] = await db
         .select()
@@ -115,7 +119,7 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (existingUser) {
-        return res.status(400).send("Username already exists");
+        return res.status(400).json({ error: "Username already exists" });
       }
 
       // Create user with hashed password
@@ -128,12 +132,15 @@ export function setupAuth(app: Express) {
       // Log the user in automatically
       req.login(user, (err) => {
         if (err) {
-          return res.status(500).send("Error logging in after registration");
+          return res.status(500).json({ error: "Error logging in after registration" });
         }
-        res.json({ id: user.id, username: user.username });
+        res.json({ 
+          success: true,
+          user: { id: user.id, username: user.username }
+        });
       });
     } catch (error: any) {
-      res.status(400).send(error.message);
+      res.status(400).json({ error: error.message });
     }
   });
 
@@ -142,7 +149,7 @@ export function setupAuth(app: Express) {
     if (!req.body.username || !req.body.password) {
       return res.status(400).json({ error: "Username and password are required" });
     }
-    
+
     passport.authenticate("local", (err: any, user: Express.User | false, info: IVerifyOptions) => {
       if (err) {
         console.error("Login error:", err);
@@ -171,16 +178,16 @@ export function setupAuth(app: Express) {
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {
       if (err) {
-        return res.status(500).send("Error logging out");
+        return res.status(500).json({ error: "Error logging out" });
       }
-      res.json({ message: "Logged out successfully" });
+      res.json({ success: true, message: "Logged out successfully" });
     });
   });
 
   // Get current user
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) {
-      return res.status(401).send("Not authenticated");
+      return res.status(401).json({ error: "Not authenticated" });
     }
     res.json(req.user);
   });
@@ -200,21 +207,17 @@ export function setupAuth(app: Express) {
       if (!user) {
         // For security reasons, always return success even if email doesn't exist
         return res.json({ 
+          success: true,
           message: "If an account exists with this email, you will receive password reset instructions." 
         });
       }
 
-      // In a real application, you would:
-      // 1. Generate a password reset token
-      // 2. Save it to the database with an expiration
-      // 3. Send an email with a reset link
-
-      // For now, we'll just return a success message
       res.json({ 
+        success: true,
         message: "If an account exists with this email, you will receive password reset instructions." 
       });
     } catch (error: any) {
-      res.status(500).send(error.message);
+      res.status(500).json({ error: error.message });
     }
   });
 }

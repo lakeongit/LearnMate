@@ -69,19 +69,32 @@ export default function AuthPage() {
         throw new Error("Authentication failed");
       }
     },
-    onSuccess: async (data) => {
+    onSuccess: async () => {
       toast({
         title: isLogin ? "Login successful" : "Registration successful",
         description: isLogin ? "Welcome back!" : "Let's set up your profile.",
       });
 
-      // After successful login, force a refresh of student profile and wait for it
-      await queryClient.invalidateQueries({ queryKey: ['/api/students/me'] });
-      await queryClient.ensureQueryData({ queryKey: ['/api/students/me'] });
-
       if (isLogin) {
-        window.location.href = "/";  // Use full page reload to ensure clean state
+        // After successful login, force a refresh of student profile
+        try {
+          await queryClient.invalidateQueries({ queryKey: ['/api/students/me'] });
+          const student = await queryClient.fetchQuery({ 
+            queryKey: ['/api/students/me'],
+            retry: false 
+          });
+
+          if (student) {
+            setLocation("/");
+          } else {
+            setLocation("/onboarding");
+          }
+        } catch (error) {
+          // If student profile doesn't exist, redirect to onboarding
+          setLocation("/onboarding");
+        }
       } else {
+        // For registration, always go to onboarding
         setLocation("/onboarding");
       }
     },
