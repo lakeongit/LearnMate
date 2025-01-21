@@ -39,6 +39,16 @@ const formSchema = z.object({
   grade: z.number().min(1).max(12),
   learningStyle: z.enum(["visual", "auditory", "kinesthetic"]),
   subjects: z.array(z.string()).min(1),
+  learningGoals: z.array(z.string()),
+  studySchedule: z.object({
+    preferredTime: z.string(),
+    sessionsPerWeek: z.number().min(1).max(7)
+  }),
+  notifications: z.object({
+    studyReminders: z.boolean(),
+    progressUpdates: z.boolean(),
+    newContentAlerts: z.boolean()
+  })
 });
 
 export function ProfileSettings({ student }: { student: any }) {

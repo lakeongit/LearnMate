@@ -196,9 +196,15 @@ export const QuizPanel = memo(function QuizPanel({
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Question {currentQuestion + 1} of {quiz.questions.length}</span>
-          <div className="flex items-center gap-2 text-sm font-normal">
-            <Clock className="h-4 w-4" />
-            <span>Difficulty {question.difficultyLevel}/5</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              <span className="text-sm">{timeLeft}s</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm font-normal">
+              <AlertCircle className="h-4 w-4" />
+              <span>Difficulty {question.difficultyLevel}/5</span>
+            </div>
           </div>
         </CardTitle>
       </CardHeader>

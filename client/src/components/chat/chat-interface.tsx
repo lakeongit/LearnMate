@@ -44,6 +44,8 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
               <MessageBubble
                 content={message.content}
                 isUser={message.role === "user"}
+                isTyping={i === messages.length - 1 && isLoading && !message.isUser}
+                shouldGroup={i > 0 && messages[i - 1].role === message.role}
               />
             </div>
           ))}
