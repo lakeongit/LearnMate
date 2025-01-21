@@ -1,6 +1,4 @@
 import rateLimit from 'express-rate-limit';
-import helmet from 'helmet';
-import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import { log } from './vite';
 
@@ -51,53 +49,3 @@ export const structuredLogging = (req: Request, res: Response, next: NextFunctio
 
   next();
 };
-
-// Input validation middleware
-export const validateRequest = (schema: z.ZodSchema) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      await schema.parseAsync({
-        body: req.body,
-        query: req.query,
-        params: req.params,
-      });
-      next();
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          error: 'Invalid request data',
-          details: error.errors,
-        });
-      }
-      next(error);
-    }
-  };
-};
-
-// Security headers middleware using helmet with relaxed settings
-export const securityHeaders = helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https:", "ws:", "wss:"],
-      fontSrc: ["'self'", "data:", "https:"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'self'"],
-    },
-  },
-  crossOriginEmbedderPolicy: false, // Temporarily disabled
-  crossOriginOpenerPolicy: false, // Temporarily disabled
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  dnsPrefetchControl: false, // Allow DNS prefetching
-  frameguard: false, // Temporarily disabled
-  hidePoweredBy: true,
-  hsts: true,
-  ieNoOpen: true,
-  noSniff: true,
-  referrerPolicy: { policy: "no-referrer-when-downgrade" },
-  xssFilter: true,
-});

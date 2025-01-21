@@ -1,7 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { authLimiter, structuredLogging } from "./middleware";
 import { setupAuth } from "./auth";
 
 const app = express();
@@ -13,14 +12,7 @@ app.use(express.urlencoded({ extended: false }));
 // Setup authentication first
 setupAuth(app);
 
-// Apply rate limiting to auth routes only
-app.use("/api/auth/login", authLimiter);
-app.use("/api/auth/register", authLimiter);
-
-// Structured logging for API requests
-app.use(structuredLogging);
-
-// Request logging middleware
+// Basic request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
