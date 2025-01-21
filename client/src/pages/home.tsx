@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { useState } from "react";
 import { useStudentProfile } from "@/hooks/use-student-profile";
 import { ChatInterface } from "@/components/chat/chat-interface";
 import { Header } from "@/components/layout/header";
@@ -8,34 +7,39 @@ import { LearningDashboard } from "@/components/learning/learning-dashboard";
 import { AchievementsPanel } from "@/components/learning/achievements-panel";
 import { StudyPlaylist } from "@/components/learning/study-playlist";
 import { MicroLearningModules } from "@/components/learning/micro-learning-modules";
+import { WelcomePanel } from "@/components/welcome/welcome-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, MessageSquare, Sparkles, Trophy, ListMusic, GraduationCap } from "lucide-react";
+import { queryClient } from "@/lib/queryClient";
 
 export default function Home() {
-  const [, setLocation] = useLocation();
   const { student, isLoading } = useStudentProfile();
+  const [showWelcome, setShowWelcome] = useState(!student);
 
-  useEffect(() => {
-    if (!isLoading && !student) {
-      setLocation("/onboarding");
-    }
-  }, [student, isLoading, setLocation]);
-
-  const handleUnitSelect = (unitId: number) => {
-    setLocation(`/learning/${unitId}`);
+  const handleWelcomeComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/students/me"] });
+    setShowWelcome(false);
   };
 
-  if (isLoading || !student) {
+  if (isLoading) {
     return null;
+  }
+
+  if (showWelcome) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-8 flex items-center">
+        <WelcomePanel onComplete={handleWelcomeComplete} />
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <Header student={student} />
+      <Header student={student!} />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-primary">
-            Welcome back, {student.name}!
+            Welcome back, {student!.name}!
           </h2>
           <p className="text-muted-foreground">
             Ready to continue your learning journey?
@@ -71,27 +75,27 @@ export default function Home() {
           </TabsList>
 
           <TabsContent value="learning" className="mt-6">
-            <LearningDashboard student={student} />
+            <LearningDashboard student={student!} />
           </TabsContent>
 
           <TabsContent value="quick-study" className="mt-6">
-            <MicroLearningModules student={student} onSelectUnit={handleUnitSelect} />
+            <MicroLearningModules student={student!} />
           </TabsContent>
 
           <TabsContent value="playlist" className="mt-6">
-            <StudyPlaylist student={student} />
+            <StudyPlaylist student={student!} />
           </TabsContent>
 
           <TabsContent value="chat" className="mt-6">
-            <ChatInterface student={student} />
+            <ChatInterface student={student!} />
           </TabsContent>
 
           <TabsContent value="achievements" className="mt-6">
-            <AchievementsPanel student={student} />
+            <AchievementsPanel student={student!} />
           </TabsContent>
 
           <TabsContent value="recommendations" className="mt-6">
-            <RecommendationsPanel student={student} />
+            <RecommendationsPanel student={student!} />
           </TabsContent>
         </Tabs>
       </main>
