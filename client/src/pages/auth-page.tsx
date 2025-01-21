@@ -39,21 +39,35 @@ export default function AuthPage() {
 
   const auth = useMutation({
     mutationFn: async (data: z.infer<typeof authSchema>) => {
-      const response = await fetch(
-        `/api/${isLogin ? "login" : "register"}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-          credentials: "include",
+      try {
+        const response = await fetch(
+          `/api/${isLogin ? "login" : "register"}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+            credentials: "include",
+          }
+        );
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Server returned non-JSON response");
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(await response.text());
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || "Authentication failed");
+        }
+
+        return result;
+      } catch (err) {
+        if (err instanceof Error) {
+          throw new Error(err.message);
+        }
+        throw new Error("Authentication failed");
       }
-
-      return response.json();
     },
     onSuccess: async (data) => {
       toast({
