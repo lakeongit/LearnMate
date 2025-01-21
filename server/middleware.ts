@@ -29,11 +29,11 @@ export const structuredLogging = (req: Request, res: Response, next: NextFunctio
   res.json = function(body) {
     const duration = Date.now() - start;
     const statusCode = res.statusCode;
-    
+
     // Only log API requests
     if (req.path.startsWith('/api')) {
       log(`[${logData.timestamp}] ${req.method} ${req.path} ${statusCode} ${duration}ms`);
-      
+
       // Log errors with more detail
       if (statusCode >= 400) {
         console.error({
@@ -45,7 +45,7 @@ export const structuredLogging = (req: Request, res: Response, next: NextFunctio
         });
       }
     }
-    
+
     return originalJson.call(this, body);
   };
 
@@ -74,26 +74,30 @@ export const validateRequest = (schema: z.ZodSchema) => {
   };
 };
 
-// Security headers middleware using helmet
+// Security headers middleware using helmet with relaxed settings
 export const securityHeaders = helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.openai.com"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", "https:", "ws:", "wss:"],
+      fontSrc: ["'self'", "data:", "https:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'self'"],
     },
   },
-  crossOriginEmbedderPolicy: true,
-  crossOriginOpenerPolicy: true,
-  crossOriginResourcePolicy: { policy: "same-site" },
-  dnsPrefetchControl: true,
-  frameguard: { action: "deny" },
+  crossOriginEmbedderPolicy: false, // Temporarily disabled
+  crossOriginOpenerPolicy: false, // Temporarily disabled
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  dnsPrefetchControl: false, // Allow DNS prefetching
+  frameguard: false, // Temporarily disabled
   hidePoweredBy: true,
   hsts: true,
   ieNoOpen: true,
   noSniff: true,
-  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  referrerPolicy: { policy: "no-referrer-when-downgrade" },
   xssFilter: true,
 });
