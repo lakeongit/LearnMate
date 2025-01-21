@@ -8,16 +8,24 @@ interface TypingStatus {
 }
 
 export function setupWebSocket(server: Server) {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ 
+    noServer: true,
+    path: '/ws'
+  });
 
   // Handle WebSocket upgrade
   server.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url!, `http://${request.headers.host}`).pathname;
+    
     // Skip vite HMR requests
     if (request.headers['sec-websocket-protocol'] === 'vite-hmr') return;
-
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request);
-    });
+    
+    // Only handle /ws path
+    if (pathname === '/ws') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    }
   });
 
   const clients = new Map<number, WebSocket[]>();
