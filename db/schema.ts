@@ -26,7 +26,8 @@ export const learningGoals = pgTable("learning_goals", {
   priority: integer("priority"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at"),
-});
+  deletedAt: timestamp("deleted_at"),
+}).index('learning_goals_user_status_idx', ['userId', 'status']);
 
 // Chat sessions for context tracking
 export const chatSessions = pgTable("chat_sessions", {
@@ -64,8 +65,11 @@ export const contentModules = pgTable("content_modules", {
   order: integer("order").notNull(),
   standards: text("standards").notNull(),
   objectives: text("objectives").notNull(),
+  version: integer("version").default(1).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  lastModifiedAt: timestamp("last_modified_at"),
+  modifiedBy: integer("modified_by").references(() => users.id),
+}).index('content_modules_unit_order_idx', ['unitId', 'order']);
 
 // Chat messages for AI tutor
 export const chatMessages = pgTable("chat_messages", {
@@ -77,7 +81,8 @@ export const chatMessages = pgTable("chat_messages", {
   subject: text("subject"),
   context: jsonb("context"), // Stores learning style, session duration, etc.
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}).index('chat_messages_user_id_idx', ['userId', 'createdAt'])
+  .index('chat_messages_subject_idx', ['subject']);
 
 // Update the message schema types
 export const insertChatMessageSchema = createInsertSchema(chatMessages);
