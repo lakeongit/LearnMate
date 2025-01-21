@@ -28,7 +28,7 @@ const DEFAULT_SESSION: ChatSession = {
   messages: [],
   metadata: {
     learningStyle: 'visual',
-    startTime: Date.now(),
+    startTime: Date.now(), // Ensure this is always initialized
   },
 };
 
@@ -44,23 +44,27 @@ export function useChat(studentId: number) {
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
+
+      // Ensure we always have valid metadata with startTime
+      const metadata = {
+        ...DEFAULT_SESSION.metadata,
+        ...(data?.metadata || {}),
+        startTime: data?.metadata?.startTime || Date.now(), // Guarantee startTime exists
+      };
+
       return {
         ...DEFAULT_SESSION,
         ...data,
-        metadata: {
-          ...DEFAULT_SESSION.metadata,
-          ...(data?.metadata || {}),
-        },
+        metadata,
       };
     },
   });
 
   const sendMessage = useMutation({
     mutationFn: async ({ content, context }: { content: string; context?: Message["context"] }) => {
+      // Use guaranteed default session if chatSession is undefined
       const currentSession = chatSession || DEFAULT_SESSION;
-      const sessionDuration = currentSession.metadata.startTime 
-        ? Math.floor((Date.now() - currentSession.metadata.startTime) / 1000)
-        : 0;
+      const sessionDuration = Math.floor((Date.now() - currentSession.metadata.startTime) / 1000);
 
       const res = await fetch(`/api/chats/${studentId}/messages`, {
         method: "POST",
@@ -79,7 +83,15 @@ export function useChat(studentId: number) {
       return res.json();
     },
     onSuccess: (newSession: ChatSession) => {
-      queryClient.setQueryData(["/api/chats", studentId], newSession);
+      // Ensure metadata with startTime when updating cache
+      const updatedSession = {
+        ...newSession,
+        metadata: {
+          ...DEFAULT_SESSION.metadata,
+          ...newSession.metadata,
+        },
+      };
+      queryClient.setQueryData(["/api/chats", studentId], updatedSession);
     },
     onError: (error) => {
       toast({
@@ -103,7 +115,15 @@ export function useChat(studentId: number) {
       return res.json();
     },
     onSuccess: (newSession: ChatSession) => {
-      queryClient.setQueryData(["/api/chats", studentId], newSession);
+      // Ensure metadata with startTime when updating cache
+      const updatedSession = {
+        ...newSession,
+        metadata: {
+          ...DEFAULT_SESSION.metadata,
+          ...newSession.metadata,
+        },
+      };
+      queryClient.setQueryData(["/api/chats", studentId], updatedSession);
       toast({
         title: "Learning style updated",
         description: "The AI tutor will adapt to your learning preferences.",
@@ -122,6 +142,7 @@ export function useChat(studentId: number) {
       return res.json();
     },
     onSuccess: () => {
+      // Reset with new startTime
       queryClient.setQueryData(["/api/chats", studentId], {
         ...DEFAULT_SESSION,
         metadata: {
@@ -136,9 +157,15 @@ export function useChat(studentId: number) {
     endSession.mutate();
   };
 
+  // Ensure we always return valid metadata with startTime
+  const safeMetadata = chatSession?.metadata || DEFAULT_SESSION.metadata;
+
   return {
     messages: chatSession?.messages || DEFAULT_SESSION.messages,
-    metadata: chatSession?.metadata || DEFAULT_SESSION.metadata,
+    metadata: {
+      ...DEFAULT_SESSION.metadata,
+      ...safeMetadata,
+    },
     sendMessage: (content: string, context?: Message["context"]) => 
       sendMessage.mutate({ content, context }),
     updateLearningStyle: (style: string) => updateLearningStyle.mutate(style),
