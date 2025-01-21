@@ -33,19 +33,20 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
   const [showTutorExplainer, setShowTutorExplainer] = useState(true);
-  const { messages = [], metadata = { learningStyle: user.learningStyle || 'visual', startTime: Date.now() }, sendMessage, updateLearningStyle, isLoading, clearMessages } = useChat(user.id);
+  const { messages = [], sendMessage, isLoading, clearMessages } = useChat(user.id);
+  const uniqueMessages = Array.from(new Map(messages.map(m => [m.content, m])).values());
   const { toast } = useToast();
   const [studyTimer, setStudyTimer] = useState(0);
 
   // Send welcome message on first load
   useEffect(() => {
-    if (messages && messages.length === 0 && !isLoading) {
+    if (uniqueMessages && uniqueMessages.length === 0 && !isLoading) {
       const welcomeMessage = `Hi ${user.name}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${user.subjects?.join(", ") || "various subjects"}. Would you like to explore any of these subjects?`;
       sendMessage(welcomeMessage, {
         learningStyle: user.learningStyle || 'visual',
       });
     }
-  }, [user, messages, isLoading, sendMessage]);
+  }, [user, uniqueMessages, isLoading, sendMessage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,7 +142,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
             )}
 
             <Select 
-              value={metadata.learningStyle} 
+              value={messages.length > 0 ? messages[messages.length-1].context?.learningStyle : metadata.learningStyle} 
               onValueChange={adaptLearningStyle}
             >
               <SelectTrigger className="w-[180px]">
@@ -177,7 +178,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
 
       <ScrollArea className="flex-1 p-6">
         <div className="space-y-6 max-w-3xl mx-auto">
-          {messages?.map((message, i) => (
+          {uniqueMessages?.map((message, i) => (
             <div key={i} className="flex items-start gap-3">
               {message.role === 'assistant' && <Bot className="h-6 w-6 text-primary mt-1" />}
               {message.role === 'user' && <User className="h-6 w-6 text-muted-foreground mt-1" />}
@@ -186,7 +187,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
                 isUser={message.role === 'user'}
                 context={message.context}
                 status={message.status}
-                isLoading={i === messages.length - 1 && isLoading && message.role === 'assistant'}
+                isLoading={i === uniqueMessages.length - 1 && isLoading && message.role === 'assistant'}
                 className={message.role === 'user' ? 'bg-primary/10' : 'bg-muted'}
               />
             </div>

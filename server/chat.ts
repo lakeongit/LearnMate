@@ -27,7 +27,8 @@ export async function setupChat(app: Express) {
         .select()
         .from(chatMessages)
         .where(eq(chatMessages.userId, userId))
-        .orderBy(desc(chatMessages.createdAt));
+        .where(sql`created_at >= NOW() - INTERVAL '1 hour'`)
+        .orderBy(chatMessages.createdAt);
 
       res.json(messages);
     } catch (error: any) {
