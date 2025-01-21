@@ -15,10 +15,12 @@ import {
   PlayCircle,
   Filter,
   GraduationCap,
+  Sparkles,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Student, LearningUnit } from "@db/schema";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 
 interface MicroLearningModulesProps {
   student: Student;
@@ -39,11 +41,35 @@ const gradeRanges = [
   { label: "High School (9-12)", min: 9, max: 12 },
 ];
 
+const difficultyLevels = [
+  { value: "1", label: "Beginner" },
+  { value: "2", label: "Elementary" },
+  { value: "3", label: "Intermediate" },
+  { value: "4", label: "Advanced" },
+  { value: "5", label: "Expert" },
+];
+
 export function MicroLearningModules({ student, onSelectUnit }: MicroLearningModulesProps) {
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedGradeRange, setSelectedGradeRange] = useState<typeof gradeRanges[number] | null>(
     gradeRanges.find(range => student.grade >= range.min && student.grade <= range.max) || null
   );
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
+
+  // Fetch student's progress to determine recommended difficulty
+  const { data: progress, isLoading: isLoadingProgress } = useQuery({
+    queryKey: ["/api/progress", student.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/progress/${student.id}`);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+  });
+
+  // Calculate recommended difficulty based on progress
+  const recommendedDifficulty = progress?.mastery
+    ? Math.min(5, Math.max(1, Math.ceil(progress.mastery / 20)))
+    : 1;
 
   const { data: modules, isLoading } = useQuery<LearningUnit[]>({
     queryKey: [
@@ -52,6 +78,7 @@ export function MicroLearningModules({ student, onSelectUnit }: MicroLearningMod
       selectedSubject,
       selectedGradeRange?.min,
       selectedGradeRange?.max,
+      selectedDifficulty,
     ],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -61,6 +88,7 @@ export function MicroLearningModules({ student, onSelectUnit }: MicroLearningMod
           gradeMin: selectedGradeRange.min.toString(),
           gradeMax: selectedGradeRange.max.toString(),
         }),
+        ...(selectedDifficulty && { difficulty: selectedDifficulty }),
       });
 
       const res = await fetch(`/api/learning-modules?${params.toString()}`);
@@ -69,7 +97,7 @@ export function MicroLearningModules({ student, onSelectUnit }: MicroLearningMod
     },
   });
 
-  if (isLoading) {
+  if (isLoading || isLoadingProgress) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-64" />
@@ -92,7 +120,7 @@ export function MicroLearningModules({ student, onSelectUnit }: MicroLearningMod
           </p>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <Select
             value={selectedSubject || "all"}
             onValueChange={(value) => setSelectedSubject(value === "all" ? null : value)}
@@ -126,6 +154,33 @@ export function MicroLearningModules({ student, onSelectUnit }: MicroLearningMod
               {gradeRanges.map((range) => (
                 <SelectItem key={range.label} value={range.label}>
                   {range.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={selectedDifficulty || "all"}
+            onValueChange={(value) => setSelectedDifficulty(value === "all" ? null : value)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select difficulty" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Difficulties</SelectItem>
+              {difficultyLevels.map((level) => (
+                <SelectItem 
+                  key={level.value} 
+                  value={level.value}
+                  className="flex items-center justify-between"
+                >
+                  <span>{level.label}</span>
+                  {parseInt(level.value) === recommendedDifficulty && (
+                    <Badge variant="secondary" className="ml-2">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Recommended
+                    </Badge>
+                  )}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -171,9 +226,15 @@ export function MicroLearningModules({ student, onSelectUnit }: MicroLearningMod
                       <Timer className="h-4 w-4 mr-1" />
                       <span>{module.estimatedDuration} mins</span>
                     </div>
-                    <div className="flex items-center">
-                      <BookOpen className="h-4 w-4 mr-1" />
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4" />
                       <span>Grade {module.grade}</span>
+                      {module.difficulty === recommendedDifficulty && (
+                        <Badge variant="secondary" className="ml-2">
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          Recommended
+                        </Badge>
+                      )}
                     </div>
                   </div>
 

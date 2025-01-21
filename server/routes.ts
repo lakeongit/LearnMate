@@ -36,6 +36,7 @@ export function registerRoutes(app: Express): Server {
       const subject = req.query.subject as string;
       const gradeMin = parseInt(req.query.gradeMin as string);
       const gradeMax = parseInt(req.query.gradeMax as string);
+      const difficulty = parseInt(req.query.difficulty as string);
 
       // Verify the student belongs to the current user
       const [student] = await db
@@ -64,6 +65,10 @@ export function registerRoutes(app: Express): Server {
             between(learningUnits.grade, gradeMin, gradeMax)
           )
         );
+      }
+
+      if (!isNaN(difficulty)) {
+        query = query.where(eq(learningUnits.difficulty, difficulty));
       }
 
       const modules = await query.orderBy(desc(learningUnits.createdAt));
