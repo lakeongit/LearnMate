@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "@db";
 import { chatMessages, users } from "@db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { logError, ErrorSeverity } from "./error-logging";
 
 export async function setupChat(app: Express) {
@@ -23,14 +23,21 @@ export async function setupChat(app: Express) {
         return res.status(403).json({ error: "Unauthorized access to chat history" });
       }
 
-      const messages = await db
-        .select()
-        .from(chatMessages)
-        .where(eq(chatMessages.userId, userId))
-        .where(sql`created_at >= NOW() - INTERVAL '1 hour'`)
-        .orderBy(chatMessages.createdAt);
+      const messages = await db.query.chatMessages.findMany({
+        where: eq(chatMessages.userId, userId),
+        orderBy: desc(chatMessages.createdAt),
+      });
 
-      res.json(messages);
+      // Format response with metadata
+      const response = {
+        messages,
+        metadata: {
+          learningStyle: req.user.learningStyle || 'visual',
+          startTime: Date.now(),
+        }
+      };
+
+      res.json(response);
     } catch (error: any) {
       logError(error, ErrorSeverity.ERROR, {
         userId: req.user?.id,
@@ -62,25 +69,26 @@ export async function setupChat(app: Express) {
       const subject = subjectMatch ? subjectMatch[1] : "General";
       const cleanContent = subjectMatch ? content.replace(subjectMatch[0], '').trim() : content;
 
-      // Store user message
+      // Store user message in database
       const [userMessage] = await db
         .insert(chatMessages)
         .values({
-          userId,
+          userId: userId,
           content: cleanContent,
           role: 'user',
-          subject,
+          subject: subject,
+          context: context,
+          status: 'delivered',
+          createdAt: new Date(),
         })
         .returning();
 
       console.log("User message stored:", userMessage);
 
       // Get user context for personalized responses
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+      });
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -94,12 +102,12 @@ export async function setupChat(app: Express) {
       console.log("Calling Perplexity API...");
 
       // Prepare system message based on user profile and subject
-      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${user.learningStyle || 'visual'} learning. 
+      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${context?.learningStyle || user.learningStyle || 'visual'} learning. 
 You are actively teaching ${subject}. Your role is to:
 
 1. Start by assessing the student's current knowledge level
 2. Break down complex concepts into digestible chunks
-3. Use ${user.learningStyle || 'visual'} learning techniques extensively
+3. Use ${context?.learningStyle || user.learningStyle || 'visual'} learning techniques extensively
 4. Provide step-by-step explanations with examples
 5. Ask questions to check understanding
 6. Use markdown formatting for better readability
@@ -147,22 +155,29 @@ Remember: Every response should teach something new or reinforce learning.`;
         throw new Error("Invalid response format from API");
       }
 
-      // Store AI response
+      // Store AI response in database
       const [assistantMessage] = await db
         .insert(chatMessages)
         .values({
-          userId,
+          userId: userId,
           content: responseData.choices[0].message.content,
           role: 'assistant',
-          subject,
+          subject: subject,
+          context: context,
+          status: 'delivered',
+          createdAt: new Date(),
         })
         .returning();
 
       console.log("Assistant message stored:", assistantMessage);
 
+      // Return both messages with metadata
       res.json({
         messages: [userMessage, assistantMessage],
-        metadata: context || {}
+        metadata: {
+          ...context,
+          startTime: Date.now(),
+        }
       });
     } catch (error: any) {
       console.error("Chat error:", error);

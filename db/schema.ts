@@ -73,8 +73,17 @@ export const chatMessages = pgTable("chat_messages", {
   userId: integer("user_id").references(() => users.id).notNull(),
   content: text("content").notNull(),
   role: text("role").notNull(), // 'user' or 'assistant'
+  status: text("status"), // 'sending', 'delivered', 'error'
+  subject: text("subject"),
+  context: jsonb("context"), // Stores learning style, session duration, etc.
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Update the message schema types
+export const insertChatMessageSchema = createInsertSchema(chatMessages);
+export const selectChatMessageSchema = createSelectSchema(chatMessages);
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type NewChatMessage = typeof chatMessages.$inferInsert;
 
 // Learning progress tracking
 export const learningProgress = pgTable("learning_progress", {
@@ -132,10 +141,6 @@ export const selectModuleSchema = createSelectSchema(contentModules);
 export type ContentModule = typeof contentModules.$inferSelect;
 export type NewContentModule = typeof contentModules.$inferInsert;
 
-export const insertChatMessageSchema = createInsertSchema(chatMessages);
-export const selectChatMessageSchema = createSelectSchema(chatMessages);
-export type ChatMessage = typeof chatMessages.$inferSelect;
-export type NewChatMessage = typeof chatMessages.$inferInsert;
 
 export const insertProgressSchema = createInsertSchema(learningProgress);
 export const selectProgressSchema = createSelectSchema(learningProgress);
