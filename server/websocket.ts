@@ -29,6 +29,32 @@ export function setupWebSocket(server: Server) {
   });
 
   const clients = new Map<number, WebSocket[]>();
+  const PING_INTERVAL = 30000; // 30 seconds
+  
+  // Implement connection cleanup
+  function cleanupConnection(userId: number, ws: WebSocket) {
+    const userConnections = clients.get(userId) || [];
+    const updatedConnections = userConnections.filter(conn => conn !== ws);
+    
+    if (updatedConnections.length === 0) {
+      clients.delete(userId);
+    } else {
+      clients.set(userId, updatedConnections);
+    }
+  }
+  
+  // Keep-alive ping
+  setInterval(() => {
+    clients.forEach((connections, userId) => {
+      connections.forEach((ws, index) => {
+        if (ws.readyState === ws.OPEN) {
+          ws.ping();
+        } else {
+          cleanupConnection(userId, ws);
+        }
+      });
+    });
+  }, PING_INTERVAL);
 
   wss.on('connection', (ws: WebSocket) => {
     let userId: number;

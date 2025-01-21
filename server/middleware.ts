@@ -9,6 +9,8 @@ export const authLimiter = rateLimit({
   message: 'Too many login attempts, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true, // Don't count successful logins
+  keyGenerator: (req) => req.ip + '_' + req.body.username, // Separate limits per username
   handler: (req: Request, res: Response) => {
     logError(
       new Error('Rate limit exceeded'),

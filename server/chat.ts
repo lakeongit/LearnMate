@@ -79,25 +79,37 @@ export async function setupChat(app: Express) {
       Remember: Every response should be academically sound and supported by reliable sources.`;
 
       // Call Perplexity API
-      const response = await fetch("https://api.perplexity.ai/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "llama-3.1-sonar-small-128k-online",
-          messages: [
-            { role: "system", content: systemMessage },
-            { role: "user", content: cleanContent },
-          ],
-          temperature: 0.2,
-          max_tokens: 4000,
-          search_domain_filter: ["scholar", "academic"],
-          return_citations: true,
-          frequency_penalty: 1.2,
-        }),
-      });
+      try {
+        const response = await fetch("https://api.perplexity.ai/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-sonar-small-128k-online",
+            messages: [
+              { role: "system", content: systemMessage },
+              { role: "user", content: cleanContent },
+            ],
+            temperature: 0.2,
+            max_tokens: 4000,
+            search_domain_filter: ["scholar", "academic"],
+            return_citations: true,
+            frequency_penalty: 1.2,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`API request failed with status ${response.status}`);
+        }
+      } catch (error) {
+        logError(error, ErrorSeverity.ERROR, {
+          component: 'chat',
+          operation: 'perplexity-api-request'
+        });
+        throw error;
+      }
 
       if (!response.ok) {
         throw new Error(`Failed to get AI response (${response.status})`);
