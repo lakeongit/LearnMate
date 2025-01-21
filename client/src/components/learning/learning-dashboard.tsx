@@ -7,6 +7,10 @@ import {
   Award,
   ChevronRight,
   PlayCircle,
+  Target,
+  Brain,
+  BarChart,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,7 +21,16 @@ interface LearningDashboardProps {
 }
 
 export function LearningDashboard({ student }: LearningDashboardProps) {
-  const { data: units, isLoading } = useQuery<(LearningUnit & { progress: any[] })[]>({
+  const { data: insights, isLoading: isLoadingInsights } = useQuery({
+    queryKey: ["/api/progress", student.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/progress/${student.id}`);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+  });
+
+  const { data: units, isLoading: isLoadingUnits } = useQuery<(LearningUnit & { progress: any[] })[]>({
     queryKey: ["/api/learning-content", student.id],
     queryFn: async () => {
       const res = await fetch(`/api/learning-content/${student.id}`);
@@ -26,12 +39,12 @@ export function LearningDashboard({ student }: LearningDashboardProps) {
     },
   });
 
-  if (isLoading) {
+  if (isLoadingInsights || isLoadingUnits) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-64" />
-        <div className="grid gap-6 md:grid-cols-2">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="h-48" />
           ))}
         </div>
@@ -45,15 +58,84 @@ export function LearningDashboard({ student }: LearningDashboardProps) {
     return Math.round((completed / unit.progress.length) * 100);
   };
 
+  const averageMastery = insights?.mastery || 0;
+  const recentSessions = insights?.sessions || [];
+
   return (
     <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-semibold mb-2">Your Learning Journey</h2>
         <p className="text-muted-foreground">
-          Continue your progress in these subjects
+          Track your progress and master new skills
         </p>
       </div>
 
+      {/* Overview Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Overall Mastery
+            </CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{averageMastery}%</div>
+            <Progress value={averageMastery} className="h-2 mt-2" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Study Time
+            </CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {recentSessions.reduce((sum, session) => sum + session.sessionDuration, 0)} mins
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Total learning time
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Active Streak
+            </CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {recentSessions.length} days
+            </div>
+            <p className="text-xs text-muted-foreground">Keep it up!</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Brain Power
+            </CardTitle>
+            <Brain className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {Math.round(averageMastery * recentSessions.length / 100)} XP
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Learning points earned
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Subject Progress */}
       <div className="grid gap-6 md:grid-cols-2">
         {units?.map((unit) => (
           <Card key={unit.id} className="group hover:shadow-lg transition-shadow">
@@ -108,6 +190,41 @@ export function LearningDashboard({ student }: LearningDashboardProps) {
           </Card>
         ))}
       </div>
+
+      {/* Recent Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart className="h-5 w-5" />
+            Recent Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {recentSessions.slice(0, 5).map((session, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between border-b pb-2 last:border-0"
+              >
+                <div>
+                  <p className="font-medium">{session.subject}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {session.topic}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium">
+                    {session.mastery}% mastery
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {session.sessionDuration} mins
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
