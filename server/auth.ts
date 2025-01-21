@@ -30,7 +30,12 @@ const crypto = {
 
 declare global {
   namespace Express {
-    interface User extends typeof users.$inferSelect {}
+    interface User {
+      id: number;
+      username: string;
+      password: string;
+      createdAt: Date;
+    }
   }
 }
 
@@ -101,7 +106,7 @@ export function setupAuth(app: Express) {
   app.post("/api/register", async (req, res) => {
     try {
       const { username, password, ...studentData } = req.body;
-      
+
       // Check if user exists
       const [existingUser] = await db
         .select()
