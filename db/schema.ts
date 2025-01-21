@@ -7,11 +7,10 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").unique().notNull(),
   password: text("password").notNull(),
-  role: text("role", { enum: ['admin', 'user'] }).default('user').notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Students table with role reference
+// Students table without role reference
 export const students = pgTable("students", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
@@ -19,7 +18,6 @@ export const students = pgTable("students", {
   grade: integer("grade").notNull(),
   learningStyle: text("learning_style").notNull(),
   subjects: text("subjects").array().notNull(),
-  role: text("role").references(() => users.role).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

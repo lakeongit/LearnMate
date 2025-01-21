@@ -87,7 +87,6 @@ export function registerRoutes(app: Express): Server {
           grade: req.body.grade,
           learningStyle: req.body.learningStyle,
           subjects: req.body.subjects,
-          role: (req.user as any).role,
         })
         .returning();
 
