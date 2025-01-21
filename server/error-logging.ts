@@ -1,22 +1,4 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { db } from "@db";
-import { adminAuditLog } from "@db/schema";
-import { eq, desc } from "drizzle-orm";
-
-// Log admin actions
-export const logAdminAction = async (
-  userId: number,
-  action: string,
-  details: any,
-  req: Request
-) => {
-  await db.insert(adminAuditLog).values({
-    userId,
-    action,
-    details,
-    ipAddress: req.ip,
-  });
-};
 
 export function setupErrorLogging(app: Express) {
   // Add request logging middleware

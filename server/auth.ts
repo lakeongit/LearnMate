@@ -5,7 +5,7 @@ import session from "express-session";
 import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { users, students } from "@db/schema";
+import { users } from "@db/schema";
 import { db } from "@db";
 import { eq } from "drizzle-orm";
 
@@ -33,7 +33,10 @@ declare global {
     interface User {
       id: number;
       username: string;
-      role: string;
+      name?: string;
+      grade?: number;
+      learningStyle?: string;
+      subjects?: string[];
       createdAt: Date;
     }
   }
@@ -127,41 +130,29 @@ export function setupAuth(app: Express) {
           return res.status(500).json({ error: "Session error" });
         }
 
-        // Check if the user has a student profile
-        const [student] = await db
-          .select()
-          .from(students)
-          .where(eq(students.userId, user.id))
-          .limit(1);
-
         return res.json({ 
           success: true,
           user: { 
             id: user.id, 
             username: user.username,
-            role: user.role
-          },
-          student: student || null
+            name: user.name,
+            grade: user.grade,
+            learningStyle: user.learningStyle,
+            subjects: user.subjects
+          }
         });
       });
     })(req, res, next);
   });
 
-  // Get current user with student profile
+  // Get current user
   app.get("/api/user", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const [student] = await db
-      .select()
-      .from(students)
-      .where(eq(students.userId, req.user.id))
-      .limit(1);
-
     res.json({
-      user: req.user,
-      student: student || null
+      user: req.user
     });
   });
 
@@ -199,7 +190,14 @@ export function setupAuth(app: Express) {
         }
         res.json({ 
           success: true,
-          user: { id: user.id, username: user.username }
+          user: { 
+            id: user.id, 
+            username: user.username,
+            name: user.name,
+            grade: user.grade,
+            learningStyle: user.learningStyle,
+            subjects: user.subjects
+          }
         });
       });
     } catch (error: any) {

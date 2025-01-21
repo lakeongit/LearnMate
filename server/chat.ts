@@ -1,35 +1,45 @@
 import type { Express } from "express";
 import { db } from "@db";
-import { chats, students } from "@db/schema";
+import { chatMessages, users } from "@db/schema";
 import { eq } from "drizzle-orm";
 
 export async function setupChat(app: Express) {
-  app.post("/api/chats/:studentId/messages", async (req, res) => {
+  // Middleware to ensure user is authenticated
+  const ensureAuthenticated = (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    next();
+  };
+
+  app.post("/api/chat/messages", ensureAuthenticated, async (req, res) => {
     try {
-      const studentId = parseInt(req.params.studentId);
+      const userId = req.user.id;
       const content = req.body.content;
 
-      // Get student profile for context
-      const [student] = await db
-        .select()
-        .from(students)
-        .where(eq(students.id, studentId));
-
-      if (!student) {
-        return res.status(404).send("Student not found");
+      if (!content) {
+        return res.status(400).json({ error: "Message content is required" });
       }
 
-      // Get existing chat or create new one
-      let [chat] = await db
+      // Store user message
+      const [userMessage] = await db
+        .insert(chatMessages)
+        .values({
+          userId,
+          content,
+          role: 'user',
+        })
+        .returning();
+
+      // Get user context for personalized responses
+      const [user] = await db
         .select()
-        .from(chats)
-        .where(eq(chats.studentId, studentId));
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
 
-      const newMessage = { role: "user" as const, content };
-      const messages = chat ? [...chat.messages, newMessage] : [newMessage];
-
-      // Prepare system message based on student profile
-      const systemMessage = `You are an educational AI tutor helping a grade ${student.grade} student who prefers ${student.learningStyle} learning. Keep explanations age-appropriate and engaging.`;
+      // Prepare system message based on user profile
+      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade} student who prefers ${user.learningStyle} learning. Keep explanations age-appropriate and engaging.`;
 
       // Call Perplexity API
       const response = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -42,7 +52,7 @@ export async function setupChat(app: Express) {
           model: "llama-3.1-sonar-small-128k-online",
           messages: [
             { role: "system", content: systemMessage },
-            ...messages,
+            { role: "user", content },
           ],
           temperature: 0.7,
         }),
@@ -53,32 +63,39 @@ export async function setupChat(app: Express) {
       }
 
       const aiResponse = await response.json();
-      const aiMessage = {
-        role: "assistant" as const,
-        content: aiResponse.choices[0].message.content,
-      };
 
-      // Update or create chat with new messages
-      if (chat) {
-        [chat] = await db
-          .update(chats)
-          .set({ messages: [...messages, aiMessage] })
-          .where(eq(chats.id, chat.id))
-          .returning();
-      } else {
-        [chat] = await db
-          .insert(chats)
-          .values({
-            studentId,
-            messages: [...messages, aiMessage],
-            topic: "General",
-          })
-          .returning();
-      }
+      // Store AI response
+      const [assistantMessage] = await db
+        .insert(chatMessages)
+        .values({
+          userId,
+          content: aiResponse.choices[0].message.content,
+          role: 'assistant',
+        })
+        .returning();
 
-      res.json(chat.messages);
+      res.json({
+        messages: [userMessage, assistantMessage]
+      });
     } catch (error: any) {
-      res.status(500).send(error.message);
+      console.error("Chat error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get chat history
+  app.get("/api/chat/messages", ensureAuthenticated, async (req, res) => {
+    try {
+      const messages = await db
+        .select()
+        .from(chatMessages)
+        .where(eq(chatMessages.userId, req.user.id))
+        .orderBy(chatMessages.createdAt);
+
+      res.json({ messages });
+    } catch (error: any) {
+      console.error("Error fetching chat history:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 }

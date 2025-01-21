@@ -1,59 +1,39 @@
-import { pgTable, text, serial, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users table with role field
+// Users table with basic profile info
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").unique().notNull(),
   password: text("password").notNull(),
-  role: text("role").default('user').notNull(),
+  name: text("name"),
+  grade: integer("grade"),
+  learningStyle: text("learning_style"),
+  subjects: text("subjects").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Students table without role reference
-export const students = pgTable("students", {
+// Chat messages table
+export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
-  name: text("name").notNull(),
-  grade: integer("grade").notNull(),
-  learningStyle: text("learning_style").notNull(),
-  subjects: text("subjects").array().notNull(),
+  content: text("content").notNull(),
+  role: text("role").notNull(), // 'user' or 'assistant'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Admin permissions table
-export const adminPermissions = pgTable("admin_permissions", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  permissions: jsonb("permissions").notNull().$type<{
-    manageUsers: boolean;
-    manageContent: boolean;
-    viewAnalytics: boolean;
-    manageSettings: boolean;
-  }>(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-// Admin audit log
-export const adminAuditLog = pgTable("admin_audit_log", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  action: text("action").notNull(), // e.g., 'create_content', 'update_user', etc.
-  details: jsonb("details").notNull(),
-  ipAddress: text("ip_address"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
+// Learning progress tracking
 export const learningProgress = pgTable("learning_progress", {
   id: serial("id").primaryKey(),
-  studentId: integer("student_id").references(() => students.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
   subject: text("subject").notNull(),
   topic: text("topic").notNull(),
   sessionDuration: integer("session_duration").notNull(), // in minutes
   completed: boolean("completed").default(false).notNull(),
   mastery: integer("mastery").default(0).notNull(), // 0-100 scale
-  completedAt: timestamp("completed_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const learningUnits = pgTable("learning_units", {
@@ -65,8 +45,8 @@ export const learningUnits = pgTable("learning_units", {
   difficulty: integer("difficulty").notNull(), // 1-5 scale
   prerequisites: integer("prerequisite_unit_id").array(),
   estimatedDuration: integer("estimated_duration").notNull(), // in minutes
-  standards: text("standards").notNull(), // Added field for educational standards
-  objectives: text("objectives").notNull(), // Added field for learning objectives
+  standards: text("standards").notNull(),
+  objectives: text("objectives").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -76,158 +56,38 @@ export const contentModules = pgTable("content_modules", {
   title: text("title").notNull(),
   content: text("content").notNull(),
   type: text("type").notNull(), // 'video', 'text', 'interactive', 'exercise'
-  learningStyle: text("learning_style").notNull(),
   order: integer("order").notNull(),
-  standards: text("standards").notNull(), // Added field for educational standards
-  objectives: text("objectives").notNull(), // Added field for learning objectives
+  standards: text("standards").notNull(),
+  objectives: text("objectives").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const studentProgress = pgTable("student_progress", {
+export const userProgress = pgTable("user_progress", {
   id: serial("id").primaryKey(),
-  studentId: integer("student_id").references(() => students.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
   moduleId: integer("module_id").references(() => contentModules.id).notNull(),
   completed: boolean("completed").default(false).notNull(),
-  score: integer("score"), // Optional score for assessments
+  score: integer("score"),
   timeSpent: integer("time_spent").notNull(), // in minutes
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const chats = pgTable("chats", {
-  id: serial("id").primaryKey(),
-  studentId: integer("student_id").references(() => students.id).notNull(),
-  messages: jsonb("messages").notNull().$type<Array<{
-    role: "user" | "assistant";
-    content: string;
-  }>>(),
-  topic: text("topic").notNull(),
-  sessionDuration: integer("session_duration").default(10).notNull(), // in minutes
-  isCompleted: boolean("is_completed").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const recommendations = pgTable("recommendations", {
-  id: serial("id").primaryKey(),
-  studentId: integer("student_id").references(() => students.id).notNull(),
-  subject: text("subject").notNull(),
-  topic: text("topic").notNull(),
-  content: text("content").notNull(),
-  reason: text("reason").notNull(),
-  difficulty: integer("difficulty").notNull(), // 1-5 scale
-  isCompleted: boolean("is_completed").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const quizzes = pgTable("quizzes", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  subject: text("subject").notNull(),
-  topic: text("topic").notNull(),
-  grade: integer("grade").notNull(),
-  difficultyLevel: integer("difficulty_level").notNull(), // 1-5 scale
-  learningStyle: text("learning_style").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const quizQuestions = pgTable("quiz_questions", {
-  id: serial("id").primaryKey(),
-  quizId: integer("quiz_id").references(() => quizzes.id).notNull(),
-  question: text("question").notNull(),
-  options: jsonb("options").$type<string[]>().notNull(),
-  correctAnswer: text("correct_answer").notNull(),
-  explanation: text("explanation").notNull(),
-  type: text("type").notNull(), // 'multiple_choice', 'true_false', 'short_answer'
-  difficultyLevel: integer("difficulty_level").notNull(), // 1-5 scale
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const studentQuizAttempts = pgTable("student_quiz_attempts", {
-  id: serial("id").primaryKey(),
-  studentId: integer("student_id").references(() => students.id).notNull(),
-  quizId: integer("quiz_id").references(() => quizzes.id).notNull(),
-  score: integer("score").notNull(),
-  answers: jsonb("answers").$type<Array<{
-    questionId: number;
-    answer: string;
-    isCorrect: boolean;
-    timeSpent: number; // in seconds
-  }>>().notNull(),
-  completed: boolean("completed").default(false).notNull(),
-  startedAt: timestamp("started_at").defaultNow().notNull(),
-  completedAt: timestamp("completed_at"),
-});
-
-export const achievements = pgTable("achievements", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description").notNull(),
-  criteria: jsonb("criteria").notNull().$type<{
-    type: "login_streak" | "quiz_score" | "learning_time" | "mastery_level";
-    threshold: number;
-  }>(),
-  badgeIcon: text("badge_icon").notNull(), // SVG string
-  rarity: text("rarity").notNull(), // common, rare, epic, legendary
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const studentAchievements = pgTable("student_achievements", {
-  id: serial("id").primaryKey(),
-  studentId: integer("student_id").references(() => students.id).notNull(),
-  achievementId: integer("achievement_id").references(() => achievements.id).notNull(),
-  earnedAt: timestamp("earned_at").defaultNow().notNull(),
-  metadata: jsonb("metadata").$type<{
-    progress: number;
-    context?: string;
-  }>(),
-});
-
-export const motivationMetrics = pgTable("motivation_metrics", {
-  id: serial("id").primaryKey(),
-  studentId: integer("student_id").references(() => students.id).notNull(),
-  metric: text("metric").notNull(), // e.g., "daily_engagement", "focus_time", "persistence"
-  value: integer("value").notNull(),
-  date: timestamp("date").defaultNow().notNull(),
-});
-
-// Add new schema types for admin-related tables
-export const insertAdminPermissionSchema = createInsertSchema(adminPermissions);
-export const selectAdminPermissionSchema = createSelectSchema(adminPermissions);
-export type AdminPermission = typeof adminPermissions.$inferSelect;
-export type NewAdminPermission = typeof adminPermissions.$inferInsert;
-
-export const insertAuditLogSchema = createInsertSchema(adminAuditLog);
-export const selectAuditLogSchema = createSelectSchema(adminAuditLog);
-export type AuditLog = typeof adminAuditLog.$inferSelect;
-export type NewAuditLog = typeof adminAuditLog.$inferInsert;
-
-// Update user schema to include role
-export const insertUserSchema = createInsertSchema(users, {
-  role: z.enum(['admin', 'user']).default('user'),
-});
+// Create schemas for type safety
+export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
-export const insertStudentSchema = createInsertSchema(students);
-export const selectStudentSchema = createSelectSchema(students);
-export type Student = typeof students.$inferSelect;
-export type NewStudent = typeof students.$inferInsert;
+export const insertChatMessageSchema = createInsertSchema(chatMessages);
+export const selectChatMessageSchema = createSelectSchema(chatMessages);
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type NewChatMessage = typeof chatMessages.$inferInsert;
 
 export const insertProgressSchema = createInsertSchema(learningProgress);
 export const selectProgressSchema = createSelectSchema(learningProgress);
 export type Progress = typeof learningProgress.$inferSelect;
 export type NewProgress = typeof learningProgress.$inferInsert;
-
-export const insertChatSchema = createInsertSchema(chats);
-export const selectChatSchema = createSelectSchema(chats);
-export type Chat = typeof chats.$inferSelect;
-export type NewChat = typeof chats.$inferInsert;
-
-export const insertRecommendationSchema = createInsertSchema(recommendations);
-export const selectRecommendationSchema = createSelectSchema(recommendations);
-export type Recommendation = typeof recommendations.$inferSelect;
-export type NewRecommendation = typeof recommendations.$inferInsert;
 
 export const insertUnitSchema = createInsertSchema(learningUnits);
 export const selectUnitSchema = createSelectSchema(learningUnits);
@@ -239,37 +99,7 @@ export const selectModuleSchema = createSelectSchema(contentModules);
 export type ContentModule = typeof contentModules.$inferSelect;
 export type NewContentModule = typeof contentModules.$inferInsert;
 
-export const insertStudentProgressSchema = createInsertSchema(studentProgress);
-export const selectStudentProgressSchema = createSelectSchema(studentProgress);
-export type StudentProgress = typeof studentProgress.$inferSelect;
-export type NewStudentProgress = typeof studentProgress.$inferInsert;
-
-export const insertQuizSchema = createInsertSchema(quizzes);
-export const selectQuizSchema = createSelectSchema(quizzes);
-export type Quiz = typeof quizzes.$inferSelect;
-export type NewQuiz = typeof quizzes.$inferInsert;
-
-export const insertQuestionSchema = createInsertSchema(quizQuestions);
-export const selectQuestionSchema = createSelectSchema(quizQuestions);
-export type QuizQuestion = typeof quizQuestions.$inferSelect;
-export type NewQuizQuestion = typeof quizQuestions.$inferInsert;
-
-export const insertAttemptSchema = createInsertSchema(studentQuizAttempts);
-export const selectAttemptSchema = createSelectSchema(studentQuizAttempts);
-export type QuizAttempt = typeof studentQuizAttempts.$inferSelect;
-export type NewQuizAttempt = typeof studentQuizAttempts.$inferInsert;
-
-export const insertAchievementSchema = createInsertSchema(achievements);
-export const selectAchievementSchema = createSelectSchema(achievements);
-export type Achievement = typeof achievements.$inferSelect;
-export type NewAchievement = typeof achievements.$inferInsert;
-
-export const insertStudentAchievementSchema = createInsertSchema(studentAchievements);
-export const selectStudentAchievementSchema = createSelectSchema(studentAchievements);
-export type StudentAchievement = typeof studentAchievements.$inferSelect;
-export type NewStudentAchievement = typeof studentAchievements.$inferInsert;
-
-export const insertMotivationMetricSchema = createInsertSchema(motivationMetrics);
-export const selectMotivationMetricSchema = createSelectSchema(motivationMetrics);
-export type MotivationMetric = typeof motivationMetrics.$inferSelect;
-export type NewMotivationMetric = typeof motivationMetrics.$inferInsert;
+export const insertUserProgressSchema = createInsertSchema(userProgress);
+export const selectUserProgressSchema = createSelectSchema(userProgress);
+export type UserProgress = typeof userProgress.$inferSelect;
+export type NewUserProgress = typeof userProgress.$inferInsert;

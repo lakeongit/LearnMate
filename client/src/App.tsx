@@ -7,29 +7,24 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import AuthPage from "@/pages/auth-page";
 import LearningUnit from "@/pages/learning-unit";
-import AdminDashboard from "@/pages/admin/dashboard";
-import Onboarding from "@/pages/onboarding";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
-import type { User, Student } from "@db/schema";
+import type { User } from "@db/schema";
+import ProfileSetup from "@/pages/profile-setup"; // Import the ProfileSetup component
+
 
 interface AuthState {
   user: User | null;
-  student: Student | null;
 }
 
 interface ProtectedRouteProps {
   component: React.ComponentType<any>;
-  requireAdmin?: boolean;
-  requireProfile?: boolean;
   componentProps?: Record<string, any>;
 }
 
 function ProtectedRoute({ 
-  component: Component, 
-  requireAdmin = false, 
-  requireProfile = true,
+  component: Component,
   componentProps 
 }: ProtectedRouteProps) {
   const [, setLocation] = useLocation();
@@ -55,27 +50,21 @@ function ProtectedRoute({
     );
   }
 
-  // Handle authentication check
   if (!auth?.user) {
     setLocation("/auth");
     return null;
   }
 
-  // Check for admin role if required
-  if (requireAdmin && auth.user.role !== 'admin') {
-    setLocation("/");
-    return null;
-  }
-
-  // Handle profile requirement
-  if (requireProfile && !auth.student) {
-    setLocation("/onboarding");
+  // Check if user profile is complete
+  const isProfileComplete = auth.user.name && auth.user.grade && auth.user.learningStyle;
+  if (!isProfileComplete && window.location.pathname !== "/profile") {
+    setLocation("/profile");
     return null;
   }
 
   return (
     <ErrorBoundary>
-      <Component {...componentProps} user={auth.user} student={auth.student} />
+      <Component {...componentProps} user={auth.user} />
     </ErrorBoundary>
   );
 }
@@ -89,48 +78,29 @@ function App() {
             {/* Auth page - unprotected */}
             <Route path="/auth" component={AuthPage} />
 
-            {/* Onboarding - protected but doesn't require profile */}
+            {/* Profile setup - protected */}
             <Route 
-              path="/onboarding" 
+              path="/profile" 
               component={() => (
-                <ProtectedRoute 
-                  component={Onboarding}
-                  requireProfile={false}
-                />
+                <ProtectedRoute component={ProfileSetup} />
               )} 
             />
 
-            {/* Home dashboard - requires complete profile */}
+            {/* Home dashboard - requires auth */}
             <Route 
               path="/" 
               component={() => (
-                <ProtectedRoute 
-                  component={Home}
-                  requireProfile={true}
-                />
+                <ProtectedRoute component={Home} />
               )} 
             />
 
-            {/* Learning unit - requires complete profile */}
+            {/* Learning unit */}
             <Route 
               path="/learning/:id"
               component={({ params }) => (
                 <ProtectedRoute 
                   component={LearningUnit} 
                   componentProps={{ id: params.id }}
-                  requireProfile={true}
-                />
-              )}
-            />
-
-            {/* Admin dashboard - protected with admin role check */}
-            <Route 
-              path="/admin"
-              component={() => (
-                <ProtectedRoute 
-                  component={AdminDashboard}
-                  requireAdmin={true}
-                  requireProfile={false}
                 />
               )}
             />

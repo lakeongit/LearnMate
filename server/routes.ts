@@ -1,7 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
-import { setupAdminRoutes } from "./admin";
 import { setupChat } from "./chat";
 import { setupRecommendations } from "./recommendations";
 import { setupLearningContent } from "./learning-content";
@@ -10,7 +9,7 @@ import { setupAchievements } from "./achievements";
 import { setupStudyPlaylist } from "./study-playlist";
 import { setupErrorLogging } from "./error-logging";
 import { db } from "@db";
-import { students } from "@db/schema";
+import { users } from "@db/schema";
 import { eq } from "drizzle-orm";
 
 // Error types for better error handling
@@ -65,59 +64,38 @@ export function registerRoutes(app: Express): Server {
     next();
   };
 
-  // Profile creation endpoint
-  app.post("/api/students/profile", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
+  // Update user profile endpoint
+  app.patch("/api/users/profile", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = req.user!;
-      console.log("Received profile creation request:", req.body);
+      console.log("Received profile update request:", req.body);
 
-      // Validate required fields
+      // Allow updating only specific fields
       const { name, grade, learningStyle, subjects } = req.body;
-      if (!name || !grade || !learningStyle || !subjects) {
-        return res.status(400).json({ 
-          error: "Missing required fields",
-          details: "All fields (name, grade, learningStyle, subjects) are required"
-        });
-      }
+      const updateData: Partial<typeof users.$inferInsert> = {};
 
-      // Check for existing profile first
-      const existingProfile = await db
-        .select()
-        .from(students)
-        .where(eq(students.userId, user.id))
-        .limit(1);
+      if (name) updateData.name = name;
+      if (grade) updateData.grade = grade;
+      if (learningStyle) updateData.learningStyle = learningStyle;
+      if (subjects) updateData.subjects = subjects;
 
-      if (existingProfile.length > 0) {
-        return res.status(400).json({
-          error: "Profile already exists",
-          details: "A profile for this user already exists in the system"
-        });
-      }
-
-      // Create new profile
-      const [profile] = await db
-        .insert(students)
-        .values({
-          userId: user.id,
-          name,
-          grade,
-          learningStyle,
-          subjects,
-        })
+      const [updatedUser] = await db
+        .update(users)
+        .set(updateData)
+        .where(eq(users.id, user.id))
         .returning();
 
-      console.log("Profile created successfully:", profile);
-      res.status(201).json({
-        message: "Profile created successfully",
-        data: profile
+      res.json({
+        message: "Profile updated successfully",
+        data: updatedUser
       });
     } catch (error) {
-      console.error("Profile creation error:", error);
+      console.error("Profile update error:", error);
       next(error);
     }
   });
 
-  // Set up all route handlers in order
+  // Set up all route handlers
   setupAuth(app);
   setupChat(app);
   setupRecommendations(app);
@@ -125,7 +103,6 @@ export function registerRoutes(app: Express): Server {
   setupQuiz(app);
   setupAchievements(app);
   setupStudyPlaylist(app);
-  setupAdminRoutes(app);
   setupErrorLogging(app);
 
   // Create HTTP server
