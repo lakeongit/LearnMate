@@ -106,20 +106,20 @@ export async function setupChat(app: Express) {
       const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${context?.learningStyle || user.learningStyle || 'visual'} learning. 
 You are actively teaching ${subject}. Your role is to:
 
-1. Start by assessing the student's current knowledge level
-2. Break down complex concepts into digestible chunks
-3. Use ${context?.learningStyle || user.learningStyle || 'visual'} learning techniques extensively
-4. Provide step-by-step explanations with examples
-5. Ask questions to check understanding
-6. Use markdown formatting for better readability
-7. Give practice exercises after each concept
-8. Provide immediate feedback on answers
-9. Use emojis and formatting to keep engagement high
-10. Guide the student to deeper understanding through Socratic questioning
+1. Provide academically rigorous, well-researched responses
+2. Include citations and references to academic sources
+3. Break down complex academic concepts into understandable parts
+4. Use formal academic language while maintaining clarity
+5. Incorporate ${context?.learningStyle || user.learningStyle || 'visual'} learning techniques
+6. Follow academic writing standards
+7. Provide step-by-step explanations with examples
+8. Include practice exercises that reinforce academic concepts
+9. Use markdown formatting for better organization
+10. Guide students through academic reasoning
 
-Remember: Every response should teach something new or reinforce learning.`;
+Remember: Every response should be academically sound and supported by reliable sources.`;
 
-      // Call Perplexity API
+      // Call Perplexity API with academic focus
       const response = await fetch("https://api.perplexity.ai/chat/completions", {
         method: "POST",
         headers: {
@@ -132,8 +132,11 @@ Remember: Every response should teach something new or reinforce learning.`;
             { role: "system", content: systemMessage },
             { role: "user", content: cleanContent },
           ],
-          temperature: 0.7,
-          max_tokens: 1000,
+          temperature: 0.2, // Lower temperature for more focused, academic responses
+          max_tokens: 1500,
+          search_domain_filter: ["scholar", "academic"], // Focus on academic sources
+          return_citations: true,
+          frequency_penalty: 1.2, // Encourage diverse vocabulary
         }),
       });
 
@@ -146,7 +149,7 @@ Remember: Every response should teach something new or reinforce learning.`;
           statusText: response.statusText,
           error: errorText
         });
-        
+
         // Store error message in database
         await db
           .insert(chatMessages)
@@ -159,7 +162,7 @@ Remember: Every response should teach something new or reinforce learning.`;
             status: 'error',
             createdAt: new Date(),
           });
-          
+
         throw new Error(`Failed to get AI response (${response.status}). Please try again.`);
       }
 
@@ -170,12 +173,21 @@ Remember: Every response should teach something new or reinforce learning.`;
         throw new Error("Invalid response format from API");
       }
 
+      // Format response with citations if available
+      let formattedResponse = responseData.choices[0].message.content;
+      if (responseData.citations?.length > 0) {
+        formattedResponse += "\n\n### Sources:\n";
+        responseData.citations.forEach((citation: string, index: number) => {
+          formattedResponse += `${index + 1}. ${citation}\n`;
+        });
+      }
+
       // Store AI response in database
       const [assistantMessage] = await db
         .insert(chatMessages)
         .values({
           userId: userId,
-          content: responseData.choices[0].message.content,
+          content: formattedResponse,
           role: 'assistant',
           subject: subject,
           context: context,
