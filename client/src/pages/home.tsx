@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useStudentProfile } from "@/hooks/use-student-profile";
 import { ChatInterface } from "@/components/chat/chat-interface";
@@ -20,6 +20,10 @@ export default function Home() {
       setLocation("/onboarding");
     }
   }, [student, isLoading, setLocation]);
+
+  const handleUnitSelect = (unitId: number) => {
+    setLocation(`/learning/${unitId}`);
+  };
 
   if (isLoading || !student) {
     return null;
@@ -71,7 +75,7 @@ export default function Home() {
           </TabsContent>
 
           <TabsContent value="quick-study" className="mt-6">
-            <MicroLearningModules student={student} />
+            <MicroLearningModules student={student} onSelectUnit={handleUnitSelect} />
           </TabsContent>
 
           <TabsContent value="playlist" className="mt-6">
