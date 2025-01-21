@@ -27,7 +27,7 @@ export class AppError extends Error {
 
 export function registerRoutes(app: Express): Server {
   // Global error handling middleware
-  app.use((err: Error, req: any, res: any, next: any) => {
+  app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     console.error('Error:', {
       name: err.name,
       message: err.message,
@@ -68,21 +68,32 @@ export function registerRoutes(app: Express): Server {
   // Profile creation endpoint
   app.post("/api/students/profile", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const user = req.user!; // We can safely assert this due to ensureAuthenticated middleware
       console.log("Received profile creation request:", req.body);
 
+      // Validate required fields
+      if (!req.body.name || !req.body.grade || !req.body.learningStyle || !req.body.subjects) {
+        throw new AppError(400, "Missing required fields");
+      }
+
+      // Check for existing profile
       const [existingProfile] = await db
         .select()
         .from(students)
-        .where(eq(students.userId, req.user.id));
+        .where(eq(students.userId, user.id));
 
       if (existingProfile) {
-        throw new AppError(400, "Profile already exists");
+        return res.status(400).json({
+          status: 'error',
+          message: "Profile already exists"
+        });
       }
 
+      // Create new profile
       const [profile] = await db
         .insert(students)
         .values({
-          userId: req.user.id,
+          userId: user.id,
           name: req.body.name,
           grade: req.body.grade,
           learningStyle: req.body.learningStyle,
@@ -91,7 +102,10 @@ export function registerRoutes(app: Express): Server {
         .returning();
 
       console.log("Profile created successfully:", profile);
-      res.json(profile);
+      res.status(201).json({
+        status: 'success',
+        data: profile
+      });
     } catch (error) {
       next(error);
     }

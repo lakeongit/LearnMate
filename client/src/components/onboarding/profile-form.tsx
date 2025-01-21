@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, QueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { LearningStyleQuiz } from "./learning-style-quiz";
 
@@ -41,7 +41,7 @@ const formSchema = z.object({
 
 interface ProfileFormProps {
   onComplete: () => void;
-  queryClient: any; // Assuming React Query client is available
+  queryClient: QueryClient;
 }
 
 export function ProfileForm({ onComplete, queryClient }: ProfileFormProps) {
@@ -70,29 +70,21 @@ export function ProfileForm({ onComplete, queryClient }: ProfileFormProps) {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Profile creation failed:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
-        throw new Error(errorText);
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create profile");
       }
 
-      const result = await response.json();
-      console.log("Profile creation successful:", result);
-      return result;
+      return response.json();
     },
     onSuccess: () => {
       toast({
         title: "Profile created!",
         description: "Let's start learning together.",
       });
-      // Invalidate profile cache to reload data
       queryClient.invalidateQueries({ queryKey: ['/api/students/me'] });
       onComplete();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error creating profile",
         description: error.message,
@@ -230,7 +222,7 @@ export function ProfileForm({ onComplete, queryClient }: ProfileFormProps) {
           className="w-full"
           disabled={createProfile.isPending}
         >
-          Create Profile
+          {createProfile.isPending ? "Creating Profile..." : "Create Profile"}
         </Button>
       </form>
     </Form>
