@@ -56,7 +56,7 @@ export default function AuthPage() {
         }
 
         const result = await response.json();
-        
+
         if (!response.ok) {
           throw new Error(result.error || "Authentication failed");
         }
@@ -76,12 +76,11 @@ export default function AuthPage() {
       });
 
       // After successful login, force a refresh of student profile and wait for it
-      await queryClient.invalidateQueries({ queryKey: ['student'] });
-      await queryClient.ensureQueryData({ queryKey: ['student'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/students/me'] });
+      await queryClient.ensureQueryData({ queryKey: ['/api/students/me'] });
 
-      // Then redirect
       if (isLogin) {
-        window.location.href = "/";
+        window.location.href = "/";  // Use full page reload to ensure clean state
       } else {
         setLocation("/onboarding");
       }
