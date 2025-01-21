@@ -11,8 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 import type { User } from "@db/schema";
-import ProfileSetup from "@/pages/profile-setup"; // Import the ProfileSetup component
-
+import ProfileSetup from "@/pages/profile-setup";
 
 interface AuthState {
   user: User | null;
@@ -32,7 +31,7 @@ function ProtectedRoute({
     queryKey: ["/api/user"],
     queryFn: async () => {
       const res = await fetch("/api/user", {
-        credentials: "include"
+        credentials: 'include'
       });
       if (!res.ok) {
         throw new Error("Authentication required");
@@ -57,8 +56,8 @@ function ProtectedRoute({
 
   // Check if user profile is complete
   const isProfileComplete = auth.user.name && auth.user.grade && auth.user.learningStyle;
-  if (!isProfileComplete && window.location.pathname !== "/profile") {
-    setLocation("/profile");
+  if (!isProfileComplete && window.location.pathname !== "/profile-setup") {
+    setLocation("/profile-setup");
     return null;
   }
 
@@ -80,7 +79,7 @@ function App() {
 
             {/* Profile setup - protected */}
             <Route 
-              path="/profile" 
+              path="/profile-setup" 
               component={() => (
                 <ProtectedRoute component={ProfileSetup} />
               )} 
@@ -94,7 +93,7 @@ function App() {
               )} 
             />
 
-            {/* Learning unit */}
+            {/* Learning unit - protected */}
             <Route 
               path="/learning/:id"
               component={({ params }) => (
