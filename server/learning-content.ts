@@ -229,15 +229,21 @@ export async function setupLearningContent(app: Express) {
           }
         }
         
-        // Fetch the newly created units
-        const newUnits = await db
-          .select()
-          .from(learningUnits)
-          .where(eq(learningUnits.grade, student.grade));
-          
-        return res.json(newUnits);
+        try {
+          // Fetch the newly created units
+          const newUnits = await db
+            .select()
+            .from(learningUnits)
+            .where(eq(learningUnits.grade, student.grade));
+            
+          return res.json(newUnits);
+        } catch (error) {
+          console.error("Error fetching new units:", error);
+          return res.status(500).json({ error: "Failed to fetch new units" });
+        }
       }
-        // Generate content for each subject
+
+      // Generate content for each subject
         const gradeContent = SUBJECTS_BY_GRADE[student.grade as keyof typeof SUBJECTS_BY_GRADE] || SUBJECTS_BY_GRADE[5];
 
         for (const subject of student.subjects) {
