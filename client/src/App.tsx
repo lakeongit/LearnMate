@@ -17,7 +17,7 @@ interface ProtectedRouteProps {
   componentProps?: Record<string, any>;
 }
 
-function ProtectedRoute({ component: Component, requireAdmin, componentProps }: ProtectedRouteProps) {
+function ProtectedRoute({ component: Component, componentProps }: ProtectedRouteProps) {
   const { student, isLoading } = useStudentProfile();
 
   if (isLoading) {
@@ -28,14 +28,10 @@ function ProtectedRoute({ component: Component, requireAdmin, componentProps }: 
     );
   }
 
-  if (!student) {
-    window.location.href = "/auth";
-    return null;
-  }
-
+  // Remove the automatic redirect and just render the component
   return (
     <ErrorBoundary>
-      <Component {...componentProps} />
+      <Component {...componentProps} student={student} />
     </ErrorBoundary>
   );
 }
@@ -69,7 +65,6 @@ function App() {
               component={() => (
                 <ProtectedRoute 
                   component={AdminDashboard}
-                  requireAdmin={true}
                 />
               )}
             />

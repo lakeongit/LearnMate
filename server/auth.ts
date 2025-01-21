@@ -33,7 +33,7 @@ declare global {
     interface User {
       id: number;
       username: string;
-      password: string;
+      role: string;
       createdAt: Date;
     }
   }
@@ -45,7 +45,9 @@ export function setupAuth(app: Express) {
     secret: process.env.REPL_ID || "education-platform-secret",
     resave: false,
     saveUninitialized: false,
-    cookie: {},
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    },
     store: new MemoryStore({
       checkPeriod: 86400000, // prune expired entries every 24h
     }),
@@ -53,7 +55,10 @@ export function setupAuth(app: Express) {
 
   if (app.get("env") === "production") {
     app.set("trust proxy", 1);
-    sessionSettings.cookie = { secure: true };
+    sessionSettings.cookie = { 
+      ...sessionSettings.cookie,
+      secure: true 
+    };
   }
 
   app.use(session(sessionSettings));
@@ -102,6 +107,64 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Login route with session handling
+  app.post("/api/login", (req, res, next) => {
+    if (!req.body.username || !req.body.password) {
+      return res.status(400).json({ error: "Username and password are required" });
+    }
+
+    passport.authenticate("local", (err: any, user: Express.User | false, info: IVerifyOptions) => {
+      if (err) {
+        console.error("Login error:", err);
+        return res.status(500).json({ error: "Internal server error" });
+      }
+      if (!user) {
+        return res.status(401).json({ error: info?.message || "Invalid credentials" });
+      }
+      req.login(user, async (err) => {
+        if (err) {
+          console.error("Session error:", err);
+          return res.status(500).json({ error: "Session error" });
+        }
+
+        // Check if the user has a student profile
+        const [student] = await db
+          .select()
+          .from(students)
+          .where(eq(students.userId, user.id))
+          .limit(1);
+
+        return res.json({ 
+          success: true,
+          user: { 
+            id: user.id, 
+            username: user.username,
+            role: user.role
+          },
+          student: student || null
+        });
+      });
+    })(req, res, next);
+  });
+
+  // Get current user with student profile
+  app.get("/api/user", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const [student] = await db
+      .select()
+      .from(students)
+      .where(eq(students.userId, req.user.id))
+      .limit(1);
+
+    res.json({
+      user: req.user,
+      student: student || null
+    });
+  });
+
   // Register route
   app.post("/api/register", async (req, res) => {
     try {
@@ -144,36 +207,6 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Login route
-  app.post("/api/login", (req, res, next) => {
-    if (!req.body.username || !req.body.password) {
-      return res.status(400).json({ error: "Username and password are required" });
-    }
-
-    passport.authenticate("local", (err: any, user: Express.User | false, info: IVerifyOptions) => {
-      if (err) {
-        console.error("Login error:", err);
-        return res.status(500).json({ error: "Internal server error" });
-      }
-      if (!user) {
-        return res.status(401).json({ error: info?.message || "Invalid credentials" });
-      }
-      req.login(user, (err) => {
-        if (err) {
-          console.error("Session error:", err);
-          return res.status(500).json({ error: "Session error" });
-        }
-        return res.json({ 
-          success: true,
-          user: { 
-            id: user.id, 
-            username: user.username 
-          } 
-        });
-      });
-    })(req, res, next);
-  });
-
   // Logout route
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {
@@ -184,13 +217,6 @@ export function setupAuth(app: Express) {
     });
   });
 
-  // Get current user
-  app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-    res.json(req.user);
-  });
 
   // Add this new endpoint after the existing authentication routes
   app.post("/api/forgot-password", async (req, res) => {
