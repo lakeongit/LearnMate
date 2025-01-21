@@ -2,11 +2,12 @@ import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useStudentProfile } from "@/hooks/use-student-profile";
 import { ChatInterface } from "@/components/chat/chat-interface";
+import { Header } from "@/components/layout/header";
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const { student, isLoading } = useStudentProfile();
-  
+
   useEffect(() => {
     if (!isLoading && !student) {
       setLocation("/onboarding");
@@ -19,11 +20,16 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Header student={student} />
       <main className="container mx-auto px-4 py-8">
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold text-primary">Welcome back, {student.name}!</h1>
-          <p className="text-muted-foreground mt-2">Ready to continue learning?</p>
-        </header>
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold text-primary">
+            Welcome back, {student.name}!
+          </h2>
+          <p className="text-muted-foreground">
+            Ready for another 10-minute learning session?
+          </p>
+        </div>
         <ChatInterface student={student} />
       </main>
     </div>
