@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const quizQuestions = [
   {
@@ -58,16 +59,19 @@ interface LearningStyleQuizProps {
 
 export function LearningStyleQuiz({ onComplete }: LearningStyleQuizProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
 
   const handleAnswer = (value: string) => {
-    const newAnswers = [...answers, value];
-    if (currentQuestion < quizQuestions.length - 1) {
-      setAnswers(newAnswers);
-      setCurrentQuestion(currentQuestion + 1);
-    } else {
+    setAnswers(prev => ({
+      ...prev,
+      [currentQuestion]: value
+    }));
+  };
+
+  const handleNext = () => {
+    if (currentQuestion === quizQuestions.length - 1) {
       // Calculate dominant learning style
-      const styles = newAnswers.reduce((acc, curr) => {
+      const styles = Object.values(answers).reduce((acc, curr) => {
         acc[curr] = (acc[curr] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
@@ -77,10 +81,17 @@ export function LearningStyleQuiz({ onComplete }: LearningStyleQuizProps) {
       )[0];
 
       onComplete(dominantStyle);
+    } else {
+      setCurrentQuestion(prev => prev + 1);
     }
   };
 
+  const handleBack = () => {
+    setCurrentQuestion(prev => Math.max(0, prev - 1));
+  };
+
   const question = quizQuestions[currentQuestion];
+  const progress = ((currentQuestion + 1) / quizQuestions.length) * 100;
 
   return (
     <Card>
@@ -96,6 +107,7 @@ export function LearningStyleQuiz({ onComplete }: LearningStyleQuizProps) {
           </div>
 
           <RadioGroup
+            value={answers[currentQuestion]}
             onValueChange={handleAnswer}
             className="space-y-4"
           >
@@ -110,10 +122,34 @@ export function LearningStyleQuiz({ onComplete }: LearningStyleQuizProps) {
           <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-primary transition-all duration-300"
-              style={{
-                width: `${((currentQuestion + 1) / quizQuestions.length) * 100}%`,
-              }}
+              style={{ width: `${progress}%` }}
             />
+          </div>
+
+          <div className="flex justify-between gap-4">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={currentQuestion === 0}
+              className="w-full"
+            >
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <Button
+              onClick={handleNext}
+              disabled={!answers[currentQuestion]}
+              className="w-full"
+            >
+              {currentQuestion === quizQuestions.length - 1 ? (
+                "Complete"
+              ) : (
+                <>
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </CardContent>
