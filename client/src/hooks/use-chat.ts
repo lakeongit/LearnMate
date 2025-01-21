@@ -132,10 +132,11 @@ export function useChat(studentId: number) {
       };
       queryClient.setQueryData(["/api/chats", studentId], updatedSession);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      console.error("Chat error:", error);
       toast({
         title: "Error sending message",
-        description: error.message,
+        description: error.message || "Failed to send message",
         variant: "destructive",
       });
     },

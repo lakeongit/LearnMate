@@ -146,7 +146,21 @@ Remember: Every response should teach something new or reinforce learning.`;
           statusText: response.statusText,
           error: errorText
         });
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        
+        // Store error message in database
+        await db
+          .insert(chatMessages)
+          .values({
+            userId: userId,
+            content: "Sorry, I encountered an error. Please try again.",
+            role: 'assistant',
+            subject: subject,
+            context: context,
+            status: 'error',
+            createdAt: new Date(),
+          });
+          
+        throw new Error(`Failed to get AI response (${response.status}). Please try again.`);
       }
 
       const responseData = await response.json();

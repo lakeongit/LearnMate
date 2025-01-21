@@ -222,7 +222,11 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
           className="flex-1 bg-muted/50"
         />
         <Button type="submit" disabled={isLoading} size="icon">
-          <Send className="h-4 w-4" />
+          {isLoading ? (
+            <span className="animate-spin">⌛</span>
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
         </Button>
       </form>
     </div>
