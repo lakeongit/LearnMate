@@ -33,8 +33,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
   const [showTutorExplainer, setShowTutorExplainer] = useState(true);
-  const { messages = [], sendMessage, isLoading, clearMessages, metadata } = useChat(user.id);
-  const uniqueMessages = Array.from(new Map(messages.map(m => [m.content, m])).values());
+  const { messages, sendMessage, isLoading, clearMessages, metadata } = useChat(user.id);
   const { toast } = useToast();
   const [studyTimer, setStudyTimer] = useState(0);
   const [userLearningStyle, setUserLearningStyle] = useState(user.learningStyle || 'visual');
@@ -42,7 +41,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   // Send welcome message on first load
   useEffect(() => {
     const sendWelcomeMessage = async () => {
-      if (uniqueMessages.length === 0 && !isLoading) {
+      if (messages.length === 0 && !isLoading) {
         const welcomeMessage = `Hi ${user.name}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${user.subjects?.join(", ") || "various subjects"}. Would you like to explore any of these subjects?`;
         try {
           await sendMessage(welcomeMessage, {
@@ -58,7 +57,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
       }
     };
     sendWelcomeMessage();
-  }, [user, uniqueMessages.length, isLoading, sendMessage, userLearningStyle, toast]);
+  }, [user, messages.length, isLoading, sendMessage, userLearningStyle, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,8 +189,8 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
 
       <ScrollArea className="flex-1 p-6">
         <div className="space-y-6 max-w-3xl mx-auto">
-          {uniqueMessages?.map((message, i) => (
-            <div key={i} className="flex items-start gap-3">
+          {messages?.map((message, i) => (
+            <div key={message.id || i} className="flex items-start gap-3">
               {message.role === 'assistant' && <Bot className="h-6 w-6 text-primary mt-1" />}
               {message.role === 'user' && <User className="h-6 w-6 text-muted-foreground mt-1" />}
               <MessageBubble
@@ -199,7 +198,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
                 isUser={message.role === 'user'}
                 context={message.context}
                 status={message.status}
-                isLoading={i === uniqueMessages.length - 1 && isLoading && message.role === 'assistant'}
+                isLoading={i === messages.length - 1 && isLoading && message.role === 'user'}
                 className={message.role === 'user' ? 'bg-primary/10' : 'bg-muted'}
               />
             </div>
