@@ -68,8 +68,12 @@ export default function AuthPage() {
         description: data.message || (isLogin ? "Successfully logged in" : "Your account has been created"),
       });
 
-      // After successful auth, redirect to home
-      setLocation("/");
+      // After successful auth, redirect based on whether student profile exists
+      if (data.student) {
+        setLocation("/?tab=chat"); // Redirect existing users to chat
+      } else {
+        setLocation("/onboarding"); // Only new users see onboarding
+      }
     },
     onError: (error: Error) => {
       toast({

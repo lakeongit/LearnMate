@@ -46,7 +46,7 @@ export default function Home() {
           </p>
         </div>
 
-        <Tabs defaultValue="learning" className="space-y-8">
+        <Tabs defaultValue={location.search.includes('tab=chat') ? 'chat' : 'learning'} className="space-y-8">
           <TabsList>
             <TabsTrigger value="learning" className="gap-2">
               <BookOpen className="h-4 w-4" />
