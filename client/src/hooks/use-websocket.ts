@@ -13,10 +13,12 @@ export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOpti
   // Create WebSocket connection
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-    wsRef.current = ws;
+    const connectWebSocket = () => {
+      const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+      wsRef.current = ws;
 
-    ws.onopen = () => {
+      ws.onopen = () => {
+        console.log('WebSocket connected');
       // Register user with WebSocket server
       ws.send(JSON.stringify({ 
         type: 'register', 
@@ -35,17 +37,29 @@ export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOpti
       }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
       toast({
         title: "Connection Error",
-        description: "There was an error connecting to the chat server",
+        description: "Attempting to reconnect to chat server...",
         variant: "destructive"
       });
+      setTimeout(connectWebSocket, 3000);
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket closed, attempting to reconnect...');
+      setTimeout(connectWebSocket, 3000);
     };
 
     return () => {
-      ws.close();
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     };
+    };
+
+    connectWebSocket();
   }, [userId, onTypingStatusChange, toast]);
 
   return {

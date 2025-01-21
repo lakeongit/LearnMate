@@ -58,6 +58,18 @@ export function setupWebSocket(server: Server) {
 
   wss.on('connection', (ws: WebSocket) => {
     let userId: number;
+    let pingTimeout: NodeJS.Timeout;
+
+    const heartbeat = () => {
+      clearTimeout(pingTimeout);
+      pingTimeout = setTimeout(() => {
+        ws.terminate();
+      }, 60000);
+    };
+
+    ws.on('ping', heartbeat);
+    ws.on('pong', heartbeat);
+    heartbeat();
 
     ws.on('message', (data: string) => {
       try {
