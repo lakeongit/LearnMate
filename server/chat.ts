@@ -79,8 +79,9 @@ export async function setupChat(app: Express) {
       Remember: Every response should be academically sound and supported by reliable sources.`;
 
       // Call Perplexity API
+      let response;
       try {
-        const response = await fetch("https://api.perplexity.ai/chat/completions", {
+        response = await fetch("https://api.perplexity.ai/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -101,18 +102,17 @@ export async function setupChat(app: Express) {
         });
 
         if (!response.ok) {
-          throw new Error(`API request failed with status ${response.status}`);
+          const errorText = await response.text();
+          throw new Error(`API request failed (${response.status}): ${errorText}`);
         }
       } catch (error) {
         logError(error, ErrorSeverity.ERROR, {
           component: 'chat',
-          operation: 'perplexity-api-request'
+          operation: 'perplexity-api-request',
+          userId,
+          content: cleanContent,
         });
-        throw error;
-      }
-
-      if (!response.ok) {
-        throw new Error(`Failed to get AI response (${response.status})`);
+        throw new Error(`Failed to process message: ${error.message}`);
       }
 
       const responseData = await response.json();

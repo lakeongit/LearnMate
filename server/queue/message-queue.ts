@@ -160,14 +160,26 @@ class MessageQueue {
       console.error(`Error processing message ${message.id}:`, error);
       message.retries++;
 
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const backoffDelay = Math.min(1000 * Math.pow(2, message.retries), 10000); // Exponential backoff
+
       if (message.retries >= this.MAX_RETRIES) {
         await this.updateStatus(message.id, 'failed', { 
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: errorMessage,
+          lastAttempt: new Date().toISOString()
         });
-        console.error(`Message ${message.id} failed after ${this.MAX_RETRIES} retries`);
+        logError(error, ErrorSeverity.ERROR, {
+          component: 'message-queue',
+          messageId: message.id,
+          retries: message.retries,
+          finalError: errorMessage
+        });
       } else {
-        await this.updateStatus(message.id, 'pending');
-        console.log(`Message ${message.id} will be retried. Attempt ${message.retries}/${this.MAX_RETRIES}`);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        await this.updateStatus(message.id, 'pending', {
+          nextRetryAt: new Date(Date.now() + backoffDelay).toISOString(),
+          lastError: errorMessage
+        });
       }
     } finally {
       this.processing.delete(message.id);
