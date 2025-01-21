@@ -202,7 +202,7 @@ export function useChat(studentId: number) {
       ...safeMetadata,
     },
     sendMessage: (content: string, context?: Message["context"]) => 
-      sendMessage.mutate({ content, context }),
+      sendMessage.mutateAsync({ content, context }),
     updateLearningStyle: (style: string) => updateLearningStyle.mutate(style),
     isLoading: sendMessage.isPending,
     clearMessages,

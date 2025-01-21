@@ -41,18 +41,23 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
 
   // Send welcome message on first load
   useEffect(() => {
-    if (uniqueMessages.length === 0 && !isLoading) {
-      const welcomeMessage = `Hi ${user.name}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${user.subjects?.join(", ") || "various subjects"}. Would you like to explore any of these subjects?`;
-      sendMessage(welcomeMessage, {
-        learningStyle: userLearningStyle,
-      }).catch(error => {
-        toast({
-          title: "Error sending welcome message",
-          description: "Please try refreshing the page",
-          variant: "destructive"
-        });
-      });
-    }
+    const sendWelcomeMessage = async () => {
+      if (uniqueMessages.length === 0 && !isLoading) {
+        const welcomeMessage = `Hi ${user.name}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${user.subjects?.join(", ") || "various subjects"}. Would you like to explore any of these subjects?`;
+        try {
+          await sendMessage(welcomeMessage, {
+            learningStyle: userLearningStyle,
+          });
+        } catch (error) {
+          toast({
+            title: "Error sending welcome message",
+            description: "Please try refreshing the page",
+            variant: "destructive"
+          });
+        }
+      }
+    };
+    sendWelcomeMessage();
   }, [user, uniqueMessages.length, isLoading, sendMessage, userLearningStyle, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,6 +79,24 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
         });
       }
     }
+  };
+
+  // Start a timed study session
+  const startStudySession = (minutes: number) => {
+    setStudyTimer(minutes * 60);
+    const interval = setInterval(() => {
+      setStudyTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          toast({
+            title: "Study Session Complete!",
+            description: "Take a short break before continuing.",
+          });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const adaptLearningStyle = (style: string) => {
