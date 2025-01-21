@@ -15,7 +15,7 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({ user }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
-  const { messages, sendMessage, isLoading } = useChat(user.id);
+  const { messages, sendMessage, isLoading, clearMessages } = useChat(user.id);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
