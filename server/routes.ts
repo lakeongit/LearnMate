@@ -8,6 +8,7 @@ import { setupAuth } from "./auth";
 import { setupRecommendations } from "./recommendations";
 import { setupLearningContent } from "./learning-content";
 import { setupQuiz } from "./quiz";
+import { setupAchievements } from "./achievements";
 
 // Middleware to ensure user is authenticated
 const ensureAuthenticated = (req: Express.Request, res: Express.Response, next: Express.NextFunction) => {
@@ -24,6 +25,7 @@ export function registerRoutes(app: Express): Server {
   setupRecommendations(app);
   setupLearningContent(app);
   setupQuiz(app);
+  setupAchievements(app);
 
   app.post("/api/students/profile", ensureAuthenticated, async (req, res) => {
     try {

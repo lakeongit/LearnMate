@@ -5,8 +5,9 @@ import { ChatInterface } from "@/components/chat/chat-interface";
 import { Header } from "@/components/layout/header";
 import { RecommendationsPanel } from "@/components/learning/recommendations-panel";
 import { LearningDashboard } from "@/components/learning/learning-dashboard";
+import { AchievementsPanel } from "@/components/learning/achievements-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, MessageSquare, Sparkles } from "lucide-react";
+import { BookOpen, MessageSquare, Sparkles, Trophy } from "lucide-react";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -45,6 +46,10 @@ export default function Home() {
               <MessageSquare className="h-4 w-4" />
               AI Tutor
             </TabsTrigger>
+            <TabsTrigger value="achievements" className="gap-2">
+              <Trophy className="h-4 w-4" />
+              Achievements
+            </TabsTrigger>
             <TabsTrigger value="recommendations" className="gap-2">
               <Sparkles className="h-4 w-4" />
               Recommendations
@@ -57,6 +62,10 @@ export default function Home() {
 
           <TabsContent value="chat" className="mt-6">
             <ChatInterface student={student} />
+          </TabsContent>
+
+          <TabsContent value="achievements" className="mt-6">
+            <AchievementsPanel student={student} />
           </TabsContent>
 
           <TabsContent value="recommendations" className="mt-6">
