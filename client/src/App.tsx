@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,11 +7,10 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import AuthPage from "@/pages/auth-page";
 import LearningUnit from "@/pages/learning-unit";
+import ProfileSetup from "@/pages/profile-setup";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { useLocation } from "wouter";
 import type { User } from "@db/schema";
-import ProfileSetup from "@/pages/profile-setup";
 
 interface AuthState {
   user: User | null;
@@ -22,11 +21,8 @@ interface ProtectedRouteProps {
   componentProps?: Record<string, any>;
 }
 
-function ProtectedRoute({ 
-  component: Component,
-  componentProps 
-}: ProtectedRouteProps) {
-  const [, setLocation] = useLocation();
+function ProtectedRoute({ component: Component, componentProps }: ProtectedRouteProps) {
+  const [location, setLocation] = useLocation();
   const { data: auth, isLoading } = useQuery<AuthState>({
     queryKey: ["/api/user"],
     queryFn: async () => {
@@ -39,8 +35,10 @@ function ProtectedRoute({
       return res.json();
     },
     retry: false,
+    staleTime: 0
   });
 
+  // Loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -49,21 +47,36 @@ function ProtectedRoute({
     );
   }
 
+  // Not authenticated
   if (!auth?.user) {
-    setLocation("/auth");
+    // Use location.replace to avoid the recursive state update
+    if (location !== "/auth") {
+      window.location.replace("/auth");
+    }
     return null;
   }
 
-  // Check if user profile is complete
-  const isProfileComplete = auth.user.name && auth.user.grade && auth.user.learningStyle;
-  if (!isProfileComplete && window.location.pathname !== "/profile-setup") {
-    setLocation("/profile-setup");
+  // Check profile completion
+  const isProfileComplete = auth.user.name && 
+                          auth.user.grade && 
+                          auth.user.learningStyle && 
+                          auth.user.subjects;
+
+  // Handle profile setup redirection
+  if (!isProfileComplete && location !== "/profile-setup") {
+    window.location.replace("/profile-setup");
+    return null;
+  }
+
+  // Prevent accessing profile setup if profile is complete
+  if (isProfileComplete && location === "/profile-setup") {
+    window.location.replace("/");
     return null;
   }
 
   return (
     <ErrorBoundary>
-      <Component {...componentProps} user={auth.user} />
+      <Component {...componentProps} />
     </ErrorBoundary>
   );
 }
@@ -85,7 +98,7 @@ function App() {
               )} 
             />
 
-            {/* Home dashboard - requires auth */}
+            {/* Home dashboard - requires complete profile */}
             <Route 
               path="/" 
               component={() => (
@@ -99,7 +112,7 @@ function App() {
               component={({ params }) => (
                 <ProtectedRoute 
                   component={LearningUnit} 
-                  componentProps={{ id: params.id }}
+                  componentProps={{ params }}
                 />
               )}
             />
