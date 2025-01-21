@@ -167,20 +167,21 @@ export default function AuthPage() {
                   )}
                 />
 
-              <div className="flex gap-4">
-                <Button type="submit" className="flex-1">
-                  Send Reset Link
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowForgotPassword(false)}
-                  className="flex-1"
-                >
-                  Back to Login
-                </Button>
-              </div>
-            </form>
+                <div className="flex gap-4">
+                  <Button type="submit" className="flex-1">
+                    Send Reset Link
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowForgotPassword(false)}
+                    className="flex-1"
+                  >
+                    Back to Login
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </CardContent>
         </Card>
       </div>
