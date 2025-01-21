@@ -11,10 +11,26 @@ import { eq, and, desc } from "drizzle-orm";
 
 const SUBJECTS_BY_GRADE = {
   1: {
-    "Mathematics": ["Numbers & Counting", "Basic Addition", "Basic Subtraction", "Shapes & Patterns"],
-    "Reading": ["Phonics", "Sight Words", "Basic Comprehension", "Story Elements"],
-    "Science": ["Living Things", "Weather", "Five Senses", "Plant Life"],
-    "Social Studies": ["Family & Community", "Basic Geography", "Citizenship", "Calendar & Time"]
+    "Mathematics": [
+      "Numbers 1-100", "Basic Addition", "Basic Subtraction", "Shapes & Patterns",
+      "Skip Counting", "Place Value", "Money Basics", "Time Telling",
+      "Simple Measurements", "Basic Fractions", "Number Comparisons", "Math Games"
+    ],
+    "Reading": [
+      "Phonics Basics", "Sight Words", "Basic Comprehension", "Story Elements",
+      "Reading Fluency", "Vocabulary Building", "Word Families", "Reading Aloud",
+      "Character Analysis", "Setting & Plot", "Poetry Basics", "Reading Strategies"
+    ],
+    "Science": [
+      "Living Things", "Weather & Climate", "Five Senses", "Plant Life",
+      "Animal Habitats", "Earth & Space", "Simple Machines", "Life Cycles",
+      "Matter States", "Energy Basics", "Human Body", "Environmental Science"
+    ],
+    "Social Studies": [
+      "Family & Community", "Basic Geography", "Citizenship", "Calendar & Time",
+      "Cultural Diversity", "Basic Economics", "Historical Figures", "Community Helpers",
+      "Map Skills", "National Symbols", "Traditions", "Transportation"
+    ]
   },
   // Add more grades with appropriate subjects and topics
   5: {

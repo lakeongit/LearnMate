@@ -11,7 +11,17 @@ import {
 import { eq, and, desc, avg } from "drizzle-orm";
 
 async function generateStudyPlaylist(student: Student) {
-  const prompt = `Create a personalized study playlist for a grade ${student.grade} student who prefers ${student.learningStyle} learning.
+  const prompt = `Create a personalized and adaptive study playlist for a grade ${student.grade} student who prefers ${student.learningStyle} learning. Base your recommendations on:
+  1. Student grade level: ${student.grade}
+  2. Learning style: ${student.learningStyle}
+  3. Current subjects: ${student.subjects.join(", ")}
+
+  Consider:
+  - Start with foundational topics
+  - Gradually increase difficulty
+  - Mix subjects to maintain engagement
+  - Include 10-minute focused lessons
+  - Suggest review sessions for completed topics
   The student is currently studying: ${student.subjects.join(", ")}.
   
   Create a structured learning path that:
