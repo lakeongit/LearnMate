@@ -18,12 +18,12 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Student, LearningUnit } from "@db/schema";
+import type { User, LearningUnit } from "@db/schema";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 
 interface MicroLearningModulesProps {
-  student: Student;
+  user: User;
   onSelectUnit?: (unitId: number) => void;
 }
 
@@ -49,18 +49,18 @@ const difficultyLevels = [
   { value: "5", label: "Expert" },
 ];
 
-export function MicroLearningModules({ student, onSelectUnit }: MicroLearningModulesProps) {
+export function MicroLearningModules({ user, onSelectUnit }: MicroLearningModulesProps) {
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedGradeRange, setSelectedGradeRange] = useState<typeof gradeRanges[number] | null>(
-    gradeRanges.find(range => student.grade >= range.min && student.grade <= range.max) || null
+    gradeRanges.find(range => (user.grade || 1) >= range.min && (user.grade || 1) <= range.max) || null
   );
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
 
-  // Fetch student's progress to determine recommended difficulty
+  // Fetch user's progress to determine recommended difficulty
   const { data: progress, isLoading: isLoadingProgress } = useQuery({
-    queryKey: ["/api/progress", student.id],
+    queryKey: ["/api/progress", user.id],
     queryFn: async () => {
-      const res = await fetch(`/api/progress/${student.id}`);
+      const res = await fetch(`/api/progress/${user.id}`);
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
@@ -74,7 +74,7 @@ export function MicroLearningModules({ student, onSelectUnit }: MicroLearningMod
   const { data: modules, isLoading } = useQuery<LearningUnit[]>({
     queryKey: [
       "/api/learning-modules",
-      student.id,
+      user.id,
       selectedSubject,
       selectedGradeRange?.min,
       selectedGradeRange?.max,
@@ -82,7 +82,7 @@ export function MicroLearningModules({ student, onSelectUnit }: MicroLearningMod
     ],
     queryFn: async () => {
       const params = new URLSearchParams({
-        studentId: student.id.toString(),
+        userId: user.id.toString(),
         ...(selectedSubject && { subject: selectedSubject }),
         ...(selectedGradeRange && {
           gradeMin: selectedGradeRange.min.toString(),

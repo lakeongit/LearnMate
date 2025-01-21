@@ -2,12 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { setupChat } from "./chat";
-import { setupRecommendations } from "./recommendations";
 import { setupLearningContent } from "./learning-content";
-import { setupQuiz } from "./quiz";
-import { setupAchievements } from "./achievements";
-import { setupStudyPlaylist } from "./study-playlist";
-import { setupErrorLogging } from "./error-logging";
 import { db } from "@db";
 import { users } from "@db/schema";
 import { eq } from "drizzle-orm";
@@ -95,15 +90,10 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Set up all route handlers
+  // Set up core route handlers
   setupAuth(app);
   setupChat(app);
-  setupRecommendations(app);
   setupLearningContent(app);
-  setupQuiz(app);
-  setupAchievements(app);
-  setupStudyPlaylist(app);
-  setupErrorLogging(app);
 
   // Create HTTP server
   const httpServer = createServer(app);

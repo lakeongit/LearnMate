@@ -25,9 +25,8 @@ const authSchema = z.object({
 });
 
 interface AuthResponse {
-  success: boolean;
-  user: User;
-  message?: string;
+  message: string;
+  user: Pick<User, 'id' | 'username' | 'name' | 'grade' | 'learningStyle' | 'subjects'>;
 }
 
 export default function AuthPage() {
@@ -68,11 +67,11 @@ export default function AuthPage() {
         description: data.message || (isLogin ? "Successfully logged in" : "Your account has been created"),
       });
 
-      // After successful auth, redirect based on whether student profile exists
-      if (data.student) {
-        setLocation("/?tab=chat"); // Redirect existing users to chat
+      // After successful auth, redirect based on whether profile is complete
+      if (data.user.grade && data.user.learningStyle) {
+        setLocation("/"); // User has completed profile setup
       } else {
-        setLocation("/onboarding"); // Only new users see onboarding
+        setLocation("/profile-setup"); // User needs to complete profile
       }
     },
     onError: (error: Error) => {
