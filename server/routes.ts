@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
 import { students, chats, learningProgress, learningUnits } from "@db/schema";
@@ -12,55 +12,49 @@ import { setupAchievements } from "./achievements";
 import { setupStudyPlaylist } from "./study-playlist";
 import { setupAdminRoutes } from "./admin";
 
-
-// Profile creation endpoint
-app.post("/api/students/profile", async (req, res) => {
-  try {
-    console.log("Received profile creation request:", req.body);
-    
-    if (!req.isAuthenticated()) {
-      console.error("Profile creation failed: User not authenticated");
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    const [existingProfile] = await db
-      .select()
-      .from(students)
-      .where(eq(students.userId, req.user!.id));
-
-    if (existingProfile) {
-      console.error("Profile creation failed: Profile already exists for user", req.user!.id);
-      return res.status(400).json({ error: "Profile already exists" });
-    }
-
-    const [profile] = await db
-      .insert(students)
-      .values({
-        userId: req.user!.id,
-        name: req.body.name,
-        grade: req.body.grade,
-        learningStyle: req.body.learningStyle,
-        subjects: req.body.subjects,
-      })
-      .returning();
-
-    console.log("Profile created successfully:", profile);
-    res.json(profile);
-  } catch (error) {
-    console.error("Profile creation error:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Middleware to ensure user is authenticated
-const ensureAuthenticated = (req: Express.Request, res: Express.Response, next: Express.NextFunction) => {
-  if (req.isAuthenticated()) {
-    return next();
-  }
-  res.status(401).json({ error: "Unauthorized" });
-};
-
 export function registerRoutes(app: Express): Server {
+  // Middleware to ensure user is authenticated
+  const ensureAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+    if (req.isAuthenticated()) {
+      return next();
+    }
+    res.status(401).json({ error: "Unauthorized" });
+  };
+
+  // Profile creation endpoint
+  app.post("/api/students/profile", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log("Received profile creation request:", req.body);
+
+      const [existingProfile] = await db
+        .select()
+        .from(students)
+        .where(eq(students.userId, (req.user as any).id));
+
+      if (existingProfile) {
+        console.error("Profile creation failed: Profile already exists for user", (req.user as any).id);
+        return res.status(400).json({ error: "Profile already exists" });
+      }
+
+      const [profile] = await db
+        .insert(students)
+        .values({
+          userId: (req.user as any).id,
+          name: req.body.name,
+          grade: req.body.grade,
+          learningStyle: req.body.learningStyle,
+          subjects: req.body.subjects,
+        })
+        .returning();
+
+      console.log("Profile created successfully:", profile);
+      res.json(profile);
+    } catch (error) {
+      console.error("Profile creation error:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
   // Set up all route handlers
   setupAuth(app);
   setupChat(app);
@@ -69,7 +63,7 @@ export function registerRoutes(app: Express): Server {
   setupQuiz(app);
   setupAchievements(app);
   setupStudyPlaylist(app);
-  setupAdminRoutes(app); // Add admin routes
+  setupAdminRoutes(app);
 
   // Create HTTP server
   const httpServer = createServer(app);

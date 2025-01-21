@@ -32,33 +32,14 @@ function ProtectedRoute({ component: Component, requireAdmin }: ProtectedRoutePr
   }
 
   // Check for admin access if required
-  if (requireAdmin && student.role !== 'admin') {
+  if (requireAdmin && !student.role?.includes('admin')) {
     return <NotFound />;
   }
 
   return <Component />;
 }
 
-function Router() {
-  return (
-    <Switch>
-      <Route path="/" component={() => <ProtectedRoute component={Home} />} />
-      <Route 
-        path="/learning/:id" 
-        component={({ params }) => <ProtectedRoute component={() => <LearningUnit params={params} />} />}
-      />
-      <Route path="/onboarding" component={Onboarding} />
-      <Route path="/auth" component={AuthPage} />
-      <Route 
-        path="/admin/dashboard" 
-        component={() => <ProtectedRoute component={AdminDashboard} requireAdmin={true} />}
-      />
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
-
-export default function App() {
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background">
@@ -66,13 +47,17 @@ export default function App() {
           <Route path="/" component={() => <ProtectedRoute component={Home} />} />
           <Route 
             path="/learning/:id" 
-            component={({ params }) => <ProtectedRoute component={() => <LearningUnit params={params} />} />}
+            component={({ params }) => (
+              <ProtectedRoute component={() => <LearningUnit params={params} />} />
+            )}
           />
           <Route path="/onboarding" component={Onboarding} />
           <Route path="/auth" component={AuthPage} />
           <Route 
             path="/admin/dashboard" 
-            component={() => <ProtectedRoute component={AdminDashboard} requireAdmin={true} />}
+            component={() => (
+              <ProtectedRoute component={AdminDashboard} requireAdmin={true} />
+            )}
           />
           <Route component={NotFound} />
         </Switch>

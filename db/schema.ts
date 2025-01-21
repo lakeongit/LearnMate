@@ -2,12 +2,24 @@ import { pgTable, text, serial, integer, timestamp, jsonb, boolean } from "drizz
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Existing users table with role field added
+// Users table with role field
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").unique().notNull(),
   password: text("password").notNull(),
-  role: text("role").default('user').notNull(), // 'admin' or 'user'
+  role: text("role", { enum: ['admin', 'user'] }).default('user').notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Students table with role reference
+export const students = pgTable("students", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  grade: integer("grade").notNull(),
+  learningStyle: text("learning_style").notNull(),
+  subjects: text("subjects").array().notNull(),
+  role: text("role").references(() => users.role).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -31,16 +43,6 @@ export const adminAuditLog = pgTable("admin_audit_log", {
   action: text("action").notNull(), // e.g., 'create_content', 'update_user', etc.
   details: jsonb("details").notNull(),
   ipAddress: text("ip_address"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const students = pgTable("students", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  name: text("name").notNull(),
-  grade: integer("grade").notNull(),
-  learningStyle: text("learning_style").notNull(),
-  subjects: text("subjects").array().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
