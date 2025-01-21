@@ -92,7 +92,7 @@ export async function setupChat(app: Express) {
             { role: "user", content: cleanContent },
           ],
           temperature: 0.2,
-          max_tokens: 1500,
+          max_tokens: 4000,
           search_domain_filter: ["scholar", "academic"],
           return_citations: true,
           frequency_penalty: 1.2,

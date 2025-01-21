@@ -26,7 +26,20 @@ interface QueuedMessage {
   userMessage?: ChatMessage;
   assistantMessage?: ChatMessage;
   error?: string;
+  processed: boolean;
 }
+
+// Add processed flag initialization
+const createQueuedMessage = (id: string, userId: number, content: string, context?: Record<string, any>): QueuedMessage => ({
+  id,
+  userId,
+  content,
+  context,
+  timestamp: Date.now(),
+  retries: 0,
+  status: 'pending',
+  processed: false
+});
 
 class MessageQueue {
   private store: typeof store;
