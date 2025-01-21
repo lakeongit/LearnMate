@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const quizQuestions = [
   {
@@ -60,34 +61,49 @@ interface LearningStyleQuizProps {
 export function LearningStyleQuiz({ onComplete }: LearningStyleQuizProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
+  const { toast } = useToast();
 
   const handleAnswer = (value: string) => {
-    setAnswers(prev => ({
+    setAnswers((prev) => ({
       ...prev,
-      [currentQuestion]: value
+      [quizQuestions[currentQuestion].id]: value,
     }));
   };
 
   const handleNext = () => {
+    if (!answers[quizQuestions[currentQuestion].id]) {
+      toast({
+        title: "Please select an answer",
+        description: "Choose an option before proceeding to the next question.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (currentQuestion === quizQuestions.length - 1) {
       // Calculate dominant learning style
-      const styles = Object.values(answers).reduce((acc, curr) => {
-        acc[curr] = (acc[curr] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+      const styles = Object.values(answers).reduce(
+        (acc, curr) => {
+          acc[curr] = (acc[curr] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
 
-      const dominantStyle = Object.entries(styles).reduce((a, b) => 
-        (a[1] > b[1] ? a : b)
+      const dominantStyle = Object.entries(styles).reduce((a, b) =>
+        a[1] > b[1] ? a : b
       )[0];
 
       onComplete(dominantStyle);
     } else {
-      setCurrentQuestion(prev => prev + 1);
+      setCurrentQuestion((prev) => prev + 1);
     }
   };
 
   const handleBack = () => {
-    setCurrentQuestion(prev => Math.max(0, prev - 1));
+    if (currentQuestion > 0) {
+      setCurrentQuestion((prev) => prev - 1);
+    }
   };
 
   const question = quizQuestions[currentQuestion];
@@ -101,13 +117,11 @@ export function LearningStyleQuiz({ onComplete }: LearningStyleQuizProps) {
             <h3 className="font-medium text-lg">
               Question {currentQuestion + 1} of {quizQuestions.length}
             </h3>
-            <p className="text-muted-foreground">
-              {question.question}
-            </p>
+            <p className="text-muted-foreground">{question.question}</p>
           </div>
 
           <RadioGroup
-            value={answers[currentQuestion]}
+            value={answers[question.id] || ""}
             onValueChange={handleAnswer}
             className="space-y-4"
           >
@@ -138,7 +152,7 @@ export function LearningStyleQuiz({ onComplete }: LearningStyleQuizProps) {
             </Button>
             <Button
               onClick={handleNext}
-              disabled={!answers[currentQuestion]}
+              disabled={!answers[question.id]}
               className="w-full"
             >
               {currentQuestion === quizQuestions.length - 1 ? (

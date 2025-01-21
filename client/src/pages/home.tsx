@@ -7,8 +7,9 @@ import { RecommendationsPanel } from "@/components/learning/recommendations-pane
 import { LearningDashboard } from "@/components/learning/learning-dashboard";
 import { AchievementsPanel } from "@/components/learning/achievements-panel";
 import { StudyPlaylist } from "@/components/learning/study-playlist";
+import { MicroLearningModules } from "@/components/learning/micro-learning-modules";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, MessageSquare, Sparkles, Trophy, ListMusic } from "lucide-react";
+import { BookOpen, MessageSquare, Sparkles, Trophy, ListMusic, GraduationCap } from "lucide-react";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -43,6 +44,10 @@ export default function Home() {
               <BookOpen className="h-4 w-4" />
               Learning
             </TabsTrigger>
+            <TabsTrigger value="quick-study" className="gap-2">
+              <GraduationCap className="h-4 w-4" />
+              Quick Study
+            </TabsTrigger>
             <TabsTrigger value="playlist" className="gap-2">
               <ListMusic className="h-4 w-4" />
               Study Playlist
@@ -63,6 +68,10 @@ export default function Home() {
 
           <TabsContent value="learning" className="mt-6">
             <LearningDashboard student={student} />
+          </TabsContent>
+
+          <TabsContent value="quick-study" className="mt-6">
+            <MicroLearningModules student={student} />
           </TabsContent>
 
           <TabsContent value="playlist" className="mt-6">
