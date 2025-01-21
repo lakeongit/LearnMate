@@ -39,6 +39,8 @@ export const learningUnits = pgTable("learning_units", {
   difficulty: integer("difficulty").notNull(), // 1-5 scale
   prerequisites: integer("prerequisite_unit_id").array(),
   estimatedDuration: integer("estimated_duration").notNull(), // in minutes
+  standards: text("standards").notNull(), // Added field for educational standards
+  objectives: text("objectives").notNull(), // Added field for learning objectives
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -50,6 +52,8 @@ export const contentModules = pgTable("content_modules", {
   type: text("type").notNull(), // 'video', 'text', 'interactive', 'exercise'
   learningStyle: text("learning_style").notNull(),
   order: integer("order").notNull(),
+  standards: text("standards").notNull(), // Added field for educational standards
+  objectives: text("objectives").notNull(), // Added field for learning objectives
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -160,7 +164,6 @@ export const motivationMetrics = pgTable("motivation_metrics", {
   date: timestamp("date").defaultNow().notNull(),
 });
 
-// Export schemas and types
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 export type User = typeof users.$inferSelect;
