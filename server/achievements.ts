@@ -7,7 +7,7 @@ import {
   users,
   learningProgress
 } from "@db/schema";
-import { eq, and, count, avg, desc } from "drizzle-orm";
+import { eq, and, count, avg, desc, sql } from "drizzle-orm";
 
 const DEFAULT_ACHIEVEMENTS = [
   {
@@ -50,20 +50,26 @@ const DEFAULT_ACHIEVEMENTS = [
 ];
 
 async function initializeAchievements() {
-  const existingAchievements = await db
-    .select()
-    .from(achievements);
+  try {
+    const existingAchievements = await db
+      .select()
+      .from(achievements);
 
-  if (existingAchievements.length === 0) {
-    await db
-      .insert(achievements)
-      .values(DEFAULT_ACHIEVEMENTS.map(achievement => ({
-        name: achievement.name,
-        description: achievement.description,
-        criteria: JSON.stringify(achievement.criteria),
-        badgeIcon: achievement.badgeIcon,
-        rarity: achievement.rarity
-      })));
+    if (existingAchievements.length === 0) {
+      await db
+        .insert(achievements)
+        .values(DEFAULT_ACHIEVEMENTS.map(achievement => ({
+          name: achievement.name,
+          description: achievement.description,
+          criteria: JSON.stringify(achievement.criteria),
+          badgeIcon: achievement.badgeIcon,
+          rarity: achievement.rarity
+        })));
+      console.log("Default achievements initialized");
+    }
+  } catch (error) {
+    console.error("Error initializing achievements:", error);
+    throw error;
   }
 }
 
@@ -79,20 +85,24 @@ async function checkAndAwardAchievements(userId: number) {
       throw new Error("User not found");
     }
 
-    // Get user's current stats
-    const [progressStats] = await db
+    // Get user's current stats using SQL aggregate functions
+    const stats = await db
       .select({
         totalSessions: count(learningProgress.id),
-        avgMastery: avg(learningProgress.mastery)
+        avgMastery: sql<number>`AVG(${learningProgress.mastery}::float)`
       })
       .from(learningProgress)
-      .where(eq(learningProgress.userId, userId));
+      .where(eq(learningProgress.userId, userId))
+      .limit(1);
+
+    const { totalSessions = 0, avgMastery = 0 } = stats[0] || {};
 
     // Check each achievement criteria and award if met
     const allAchievements = await db.select().from(achievements);
 
     for (const achievement of allAchievements) {
-      const [existing] = await db
+      // Skip if already earned
+      const existing = await db
         .select()
         .from(studentAchievements)
         .where(
@@ -103,7 +113,7 @@ async function checkAndAwardAchievements(userId: number) {
         )
         .limit(1);
 
-      if (existing) continue;
+      if (existing.length > 0) continue;
 
       const criteria = JSON.parse(achievement.criteria);
       let shouldAward = false;
@@ -111,13 +121,13 @@ async function checkAndAwardAchievements(userId: number) {
 
       switch (criteria.type) {
         case "learning_time":
-          shouldAward = (progressStats?.totalSessions || 0) >= criteria.threshold;
-          progress = Math.min(100, ((progressStats?.totalSessions || 0) / criteria.threshold) * 100);
+          shouldAward = totalSessions >= criteria.threshold;
+          progress = Math.min(100, ((totalSessions || 0) / criteria.threshold) * 100);
           break;
 
         case "mastery_level":
-          shouldAward = (progressStats?.avgMastery || 0) >= criteria.threshold;
-          progress = Math.min(100, ((progressStats?.avgMastery || 0) / criteria.threshold) * 100);
+          shouldAward = avgMastery >= criteria.threshold;
+          progress = Math.min(100, ((avgMastery || 0) / criteria.threshold) * 100);
           break;
 
         // Add more achievement types here
@@ -131,6 +141,7 @@ async function checkAndAwardAchievements(userId: number) {
             achievementId: achievement.id,
             metadata: JSON.stringify({ progress: 100 })
           });
+        console.log(`Awarded achievement ${achievement.name} to user ${userId}`);
       } else {
         // Update progress
         await db
@@ -188,7 +199,10 @@ export async function setupAchievements(app: Express) {
           motivationMetrics,
           and(
             eq(motivationMetrics.userId, userId),
-            eq(motivationMetrics.metric, db.raw(`'achievement_progress_' || ${achievements.id}::text`))
+            eq(
+              motivationMetrics.metric,
+              sql`'achievement_progress_' || ${achievements.id}::text`
+            )
           )
         )
         .orderBy(desc(studentAchievements.earnedAt));
