@@ -45,10 +45,14 @@ export function useChat(studentId: number) {
     },
   });
 
+  const clearMessages = () => {
+    queryClient.setQueryData(["/api/chats", studentId], []);
+  };
+
   return {
     messages,
     sendMessage: sendMessage.mutate,
     isLoading: sendMessage.isPending,
-    clearMessages: () => queryClient.setQueryData(["/api/chats", studentId], [])
+    clearMessages,
   };
 }

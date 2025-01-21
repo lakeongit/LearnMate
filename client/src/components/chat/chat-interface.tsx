@@ -37,9 +37,32 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   return (
     <div className="border rounded-lg h-[600px] flex flex-col bg-card shadow-lg">
       <div className="p-4 border-b flex items-center justify-between bg-primary/5">
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-lg">AI Tutor Chat</span>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            <span className="font-semibold text-lg">AI Tutor Chat</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => clearMessages()}
+              className="text-sm"
+            >
+              Clear Chat
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                clearMessages();
+                setInput("");
+              }}
+              className="text-sm"
+            >
+              New Chat
+            </Button>
+          </div>
         </div>
       </div>
 
