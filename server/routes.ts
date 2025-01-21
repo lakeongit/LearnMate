@@ -1,14 +1,17 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { setupChat } from "./chat";
 import { setupAuth } from "./auth";
+import { setupAdminRoutes } from "./admin";
+import { setupChat } from "./chat";
 import { setupRecommendations } from "./recommendations";
 import { setupLearningContent } from "./learning-content";
 import { setupQuiz } from "./quiz";
 import { setupAchievements } from "./achievements";
 import { setupStudyPlaylist } from "./study-playlist";
-import { setupAdminRoutes } from "./admin";
 import { setupErrorLogging } from "./error-logging";
+import { db } from "@db";
+import { students } from "@db/schema";
+import { eq } from "drizzle-orm";
 
 // Error types for better error handling
 export class AppError extends Error {
@@ -24,7 +27,7 @@ export class AppError extends Error {
 
 export function registerRoutes(app: Express): Server {
   // Global error handling middleware
-  app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  app.use((err: Error, req: any, res: any, next: any) => {
     console.error('Error:', {
       name: err.name,
       message: err.message,
@@ -56,7 +59,7 @@ export function registerRoutes(app: Express): Server {
 
   // Middleware to ensure user is authenticated
   const ensureAuthenticated = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.session || !req.user) {
+    if (!req.isAuthenticated() || !req.user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
     next();
@@ -70,7 +73,7 @@ export function registerRoutes(app: Express): Server {
       const [existingProfile] = await db
         .select()
         .from(students)
-        .where(eq(students.userId, (req.user as any).id));
+        .where(eq(students.userId, req.user.id));
 
       if (existingProfile) {
         throw new AppError(400, "Profile already exists");
@@ -79,7 +82,7 @@ export function registerRoutes(app: Express): Server {
       const [profile] = await db
         .insert(students)
         .values({
-          userId: (req.user as any).id,
+          userId: req.user.id,
           name: req.body.name,
           grade: req.body.grade,
           learningStyle: req.body.learningStyle,
@@ -94,7 +97,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Set up all route handlers
+  // Set up all route handlers in order
   setupAuth(app);
   setupChat(app);
   setupRecommendations(app);
@@ -102,7 +105,7 @@ export function registerRoutes(app: Express): Server {
   setupQuiz(app);
   setupAchievements(app);
   setupStudyPlaylist(app);
-  setupAdminRoutes(app); // Make sure admin routes are properly registered
+  setupAdminRoutes(app);
   setupErrorLogging(app);
 
   // Create HTTP server

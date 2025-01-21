@@ -216,34 +216,4 @@ export function setupAuth(app: Express) {
       res.json({ success: true, message: "Logged out successfully" });
     });
   });
-
-
-  // Add this new endpoint after the existing authentication routes
-  app.post("/api/forgot-password", async (req, res) => {
-    try {
-      const { email } = req.body;
-
-      // Find user by email (username in our case since we're using email as username)
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.username, email))
-        .limit(1);
-
-      if (!user) {
-        // For security reasons, always return success even if email doesn't exist
-        return res.json({ 
-          success: true,
-          message: "If an account exists with this email, you will receive password reset instructions." 
-        });
-      }
-
-      res.json({ 
-        success: true,
-        message: "If an account exists with this email, you will receive password reset instructions." 
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
 }

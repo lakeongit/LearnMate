@@ -17,11 +17,18 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import type { User } from "@db/schema";
 
 const authSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
+
+interface AuthResponse {
+  success: boolean;
+  user: User;
+  message?: string;
+}
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -50,20 +57,23 @@ export default function AuthPage() {
         throw new Error(error);
       }
 
-      return response.json();
+      return response.json() as Promise<AuthResponse>;
     },
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      // Invalidate the user query to refetch the latest user data
+      await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+
       toast({
-        title: isLogin ? "Login successful" : "Registration successful",
-        description: isLogin ? "Welcome back!" : "Account created successfully.",
+        title: isLogin ? "Welcome back!" : "Account created",
+        description: data.message || (isLogin ? "Successfully logged in" : "Your account has been created"),
       });
 
       // After successful auth, redirect to home
       setLocation("/");
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
-        title: "Error",
+        title: "Authentication failed",
         description: error.message,
         variant: "destructive",
       });
@@ -92,7 +102,11 @@ export default function AuthPage() {
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your username" {...field} />
+                      <Input 
+                        placeholder="Enter your username" 
+                        {...field}
+                        autoComplete={isLogin ? "username" : "new-username"}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -110,6 +124,7 @@ export default function AuthPage() {
                         type="password"
                         placeholder="Enter your password"
                         {...field}
+                        autoComplete={isLogin ? "current-password" : "new-password"}
                       />
                     </FormControl>
                     <FormMessage />
@@ -122,7 +137,14 @@ export default function AuthPage() {
                 className="w-full"
                 disabled={auth.isPending}
               >
-                {isLogin ? "Sign In" : "Sign Up"}
+                {auth.isPending ? (
+                  <div className="flex items-center">
+                    <span className="mr-2">Please wait</span>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-r-transparent" />
+                  </div>
+                ) : (
+                  isLogin ? "Sign In" : "Sign Up"
+                )}
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">

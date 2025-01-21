@@ -13,8 +13,8 @@ import { Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 import type { User, Student } from "@db/schema";
 
-interface AuthResponse {
-  user: User;
+interface AuthState {
+  user: User | null;
   student: Student | null;
 }
 
@@ -26,14 +26,21 @@ interface ProtectedRouteProps {
 
 function ProtectedRoute({ component: Component, requireAdmin = false, componentProps }: ProtectedRouteProps) {
   const [, setLocation] = useLocation();
-  const { data: auth, isLoading } = useQuery<AuthResponse>({
+  const { data: auth, isLoading, error } = useQuery<AuthState>({
     queryKey: ["/api/user"],
+    queryFn: async () => {
+      const res = await fetch("/api/user", {
+        credentials: "include"
+      });
+      if (!res.ok) {
+        throw new Error("Authentication required");
+      }
+      return res.json();
+    },
     retry: false,
-    onError: () => {
-      setLocation("/auth");
-    }
   });
 
+  // Handle loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -42,7 +49,9 @@ function ProtectedRoute({ component: Component, requireAdmin = false, componentP
     );
   }
 
-  if (!auth?.user) {
+  // Handle authentication error or no user
+  if (error || !auth?.user) {
+    setLocation("/auth");
     return null;
   }
 
@@ -68,7 +77,7 @@ function App() {
             {/* Auth page - unprotected */}
             <Route path="/auth" component={AuthPage} />
 
-            {/* Default route is the dashboard */}
+            {/* Default route is the home dashboard */}
             <Route path="/" component={() => <ProtectedRoute component={Home} />} />
 
             {/* Learning unit route */}
