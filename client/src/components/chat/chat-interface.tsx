@@ -3,25 +3,46 @@ import { useChat } from "@/hooks/use-chat";
 import { MessageBubble } from "./message-bubble";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, BookOpen, Bot, User } from "lucide-react";
+import { Send, BookOpen, Bot, User, Timer } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import type { User as UserType } from "@db/schema";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ChatInterfaceProps {
   user: UserType;
 }
 
+const subjects = [
+  "Mathematics",
+  "Science",
+  "English",
+  "History",
+  "Geography",
+] as const;
+
 export function ChatInterface({ user }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
   const { messages, sendMessage, isLoading, clearMessages } = useChat(user.id);
   const { toast } = useToast();
+  const [studyTimer, setStudyTimer] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
+      const messageWithContext = selectedSubject 
+        ? `[${selectedSubject}] ${input}`
+        : input;
+
       try {
-        await sendMessage(input);
+        await sendMessage(messageWithContext);
         setInput("");
       } catch (error) {
         toast({
@@ -33,6 +54,24 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
     }
   };
 
+  // Start a timed study session
+  const startStudySession = (minutes: number) => {
+    setStudyTimer(minutes * 60);
+    const interval = setInterval(() => {
+      setStudyTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          toast({
+            title: "Study Session Complete!",
+            description: "Take a short break before continuing.",
+          });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   return (
     <div className="border rounded-lg h-[600px] flex flex-col bg-card shadow-lg">
       <div className="p-4 border-b flex items-center justify-between bg-primary/5">
@@ -41,7 +80,36 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
             <BookOpen className="h-5 w-5 text-primary" />
             <span className="font-semibold text-lg">AI Tutor Chat</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            {studyTimer > 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <Timer className="h-4 w-4" />
+                <span>
+                  {Math.floor(studyTimer / 60)}:
+                  {(studyTimer % 60).toString().padStart(2, '0')}
+                </span>
+              </div>
+            )}
+            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select subject" />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.map((subject) => (
+                  <SelectItem key={subject} value={subject}>
+                    {subject}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => startStudySession(10)}
+              className="text-sm"
+            >
+              Start 10min Session
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -49,17 +117,6 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
               className="text-sm"
             >
               Clear Chat
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                clearMessages();
-                setInput("");
-              }}
-              className="text-sm"
-            >
-              New Chat
             </Button>
           </div>
         </div>
@@ -86,7 +143,9 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask your AI tutor anything..."
+          placeholder={selectedSubject 
+            ? `Ask about ${selectedSubject.toLowerCase()}...`
+            : "Ask your AI tutor anything..."}
           disabled={isLoading}
           className="flex-1 bg-muted/50"
         />

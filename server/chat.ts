@@ -50,13 +50,19 @@ export async function setupChat(app: Express) {
         return res.status(400).json({ error: "Message content is required" });
       }
 
+      // Extract subject from message if present
+      const subjectMatch = content.match(/^\[(.*?)\]/);
+      const subject = subjectMatch ? subjectMatch[1] : "General";
+      const cleanContent = subjectMatch ? content.replace(subjectMatch[0], '').trim() : content;
+
       // Store user message
       const [userMessage] = await db
         .insert(chatMessages)
         .values({
           userId,
-          content,
+          content: cleanContent,
           role: 'user',
+          subject,
         })
         .returning();
 
@@ -71,8 +77,17 @@ export async function setupChat(app: Express) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Prepare system message based on user profile
-      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${user.learningStyle || 'visual'} learning. Keep explanations age-appropriate and engaging. Break down complex concepts into simpler terms and provide examples when possible.`;
+      // Prepare system message based on user profile and subject
+      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${user.learningStyle || 'visual'} learning. 
+You are currently tutoring in ${subject}. Keep explanations age-appropriate and engaging.
+Follow these guidelines:
+1. Break down complex concepts into simpler terms
+2. Provide relevant examples
+3. Use ${user.learningStyle || 'visual'} learning techniques
+4. Include practice questions when appropriate
+5. Format code blocks with proper syntax highlighting
+6. Use markdown for mathematical equations
+7. Encourage critical thinking`;
 
       if (!process.env.PERPLEXITY_API_KEY) {
         throw new Error("PERPLEXITY_API_KEY is not configured");
@@ -89,7 +104,7 @@ export async function setupChat(app: Express) {
           model: "llama-3.1-sonar-small-128k-online",
           messages: [
             { role: "system", content: systemMessage },
-            { role: "user", content },
+            { role: "user", content: cleanContent },
           ],
           temperature: 0.7,
           max_tokens: 1000,
@@ -119,6 +134,7 @@ export async function setupChat(app: Express) {
           userId,
           content: responseData.choices[0].message.content,
           role: 'assistant',
+          subject,
         })
         .returning();
 
