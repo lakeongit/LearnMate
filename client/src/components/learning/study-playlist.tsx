@@ -29,7 +29,7 @@ export function StudyPlaylist({ student, onSelectUnit }: StudyPlaylistProps) {
     },
   });
 
-  if (isLoading) {
+  if (isLoading || !data) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-64" />
