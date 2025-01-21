@@ -29,7 +29,7 @@ export function StudyPlaylist({ student, onSelectUnit }: StudyPlaylistProps) {
     },
   });
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-64" />
@@ -38,6 +38,15 @@ export function StudyPlaylist({ student, onSelectUnit }: StudyPlaylistProps) {
             <Skeleton key={i} className="h-48" />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (!data?.playlist || !data?.progress) {
+    return (
+      <div className="text-center py-8">
+        <h2 className="text-xl font-semibold mb-2">Unable to load study playlist</h2>
+        <p className="text-muted-foreground">Please try again later</p>
       </div>
     );
   }
