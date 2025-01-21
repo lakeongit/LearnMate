@@ -54,13 +54,16 @@ export default function AuthPage() {
 
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       toast({
         title: isLogin ? "Login successful" : "Registration successful",
         description: isLogin ? "Welcome back!" : "Let's set up your profile.",
       });
 
-      // After successful login, redirect to home page with chatbot
+      // After successful login, force a refresh of student profile
+      await queryClient.invalidateQueries({ queryKey: ['student'] });
+
+      // Then redirect
       if (isLogin) {
         setLocation("/");
       } else {
