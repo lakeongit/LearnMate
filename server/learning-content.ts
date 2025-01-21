@@ -10,6 +10,28 @@ import {
 import { eq, and, desc } from "drizzle-orm";
 
 const SUBJECTS_BY_GRADE = {
+  "K": {
+    "Mathematics": [
+      "Numbers 0-20", "Basic Counting", "Shape Recognition", "Pattern Making",
+      "Size Comparison", "Sorting Objects", "One-to-One Correspondence", "Number Writing",
+      "Simple Addition", "Simple Subtraction", "Position Words", "Basic Measurement"
+    ],
+    "Reading": [
+      "Letter Recognition", "Letter Sounds", "Rhyming Words", "Sight Words",
+      "Story Listening", "Picture Reading", "Print Awareness", "Book Handling",
+      "Beginning Sounds", "Ending Sounds", "Retelling Stories", "Vocabulary Building"
+    ],
+    "Science": [
+      "My Five Senses", "Weather Watch", "Plants & Growth", "Animal Friends",
+      "Day and Night", "Seasonal Changes", "My Body", "Healthy Habits",
+      "Earth & Rocks", "Water Play", "Simple Machines", "Living vs Non-living"
+    ],
+    "Social Studies": [
+      "My Family", "My School", "My Community", "Basic Needs",
+      "Community Helpers", "Simple Maps", "Calendar Basics", "Following Rules",
+      "Different Cultures", "Transportation", "American Symbols", "Holidays"
+    ]
+  },
   1: {
     "Mathematics": [
       "Numbers 1-100", "Basic Addition", "Basic Subtraction", "Shapes & Patterns",
@@ -44,6 +66,28 @@ const SUBJECTS_BY_GRADE = {
     "Reading": ["Critical Analysis", "Research Skills", "Complex Literature", "Essay Writing"],
     "Science": ["Chemistry Basics", "Physics Concepts", "Earth Science", "Life Science"],
     "Social Studies": ["World History", "Civics", "Current Events", "Cultural Studies"]
+  },
+  12: {
+    "Mathematics": [
+      "Calculus", "Advanced Statistics", "Linear Algebra", "Complex Numbers",
+      "Vector Analysis", "Differential Equations", "Mathematical Modeling", "Probability Theory",
+      "Number Theory", "Mathematical Proof", "Real Analysis", "Applied Mathematics"
+    ],
+    "Reading": [
+      "Advanced Literature", "Critical Theory", "Research Writing", "Comparative Literature",
+      "Literary Analysis", "Academic Writing", "Rhetorical Analysis", "Technical Writing",
+      "World Literature", "Contemporary Literature", "Poetry Analysis", "Literary Criticism"
+    ],
+    "Science": [
+      "Advanced Physics", "Organic Chemistry", "Molecular Biology", "Environmental Science",
+      "Quantum Mechanics", "Biochemistry", "Genetics", "Thermodynamics",
+      "Nuclear Physics", "Advanced Biology", "Scientific Research", "Modern Scientific Theories"
+    ],
+    "Social Studies": [
+      "Modern World History", "Political Theory", "International Relations", "Economic Theory",
+      "Sociology", "Contemporary Issues", "Comparative Government", "Global Economics",
+      "Philosophy", "Social Psychology", "Research Methods", "Public Policy"
+    ]
   }
 };
 
