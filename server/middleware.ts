@@ -1,6 +1,6 @@
 import rateLimit from 'express-rate-limit';
 import type { Request, Response, NextFunction } from 'express';
-import { log } from './vite';
+import { logError, ErrorSeverity } from './error-logging';
 
 // Rate limiting middleware
 export const authLimiter = rateLimit({
@@ -9,43 +9,41 @@ export const authLimiter = rateLimit({
   message: 'Too many login attempts, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req: Request, res: Response) => {
+    logError(
+      new Error('Rate limit exceeded'),
+      ErrorSeverity.WARNING,
+      {
+        ip: req.ip,
+        path: req.path,
+        attempts: req.ip ? (req as any).rateLimit.current : 0
+      }
+    );
+    res.status(429).json({
+      error: 'Too many login attempts, please try again later'
+    });
+  }
 });
 
-// Structured logging middleware
-export const structuredLogging = (req: Request, res: Response, next: NextFunction) => {
-  const start = Date.now();
-  const logData = {
-    timestamp: new Date().toISOString(),
-    method: req.method,
+// Error handling middleware
+export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+  // Log the error with appropriate severity
+  const severity = err.statusCode >= 500 ? ErrorSeverity.CRITICAL : ErrorSeverity.ERROR;
+
+  logError(err, severity, {
     path: req.path,
-    ip: req.ip,
-    userAgent: req.get('user-agent'),
-  };
+    method: req.method,
+    query: req.query,
+    body: req.body,
+    user: req.user,
+    ip: req.ip
+  });
 
-  // Capture response data
-  const originalJson = res.json;
-  res.json = function(body) {
-    const duration = Date.now() - start;
-    const statusCode = res.statusCode;
-
-    // Only log API requests
-    if (req.path.startsWith('/api')) {
-      log(`[${logData.timestamp}] ${req.method} ${req.path} ${statusCode} ${duration}ms`);
-
-      // Log errors with more detail
-      if (statusCode >= 400) {
-        console.error({
-          ...logData,
-          statusCode,
-          duration,
-          error: body.error || body.message,
-          stack: body.stack,
-        });
-      }
-    }
-
-    return originalJson.call(this, body);
-  };
-
-  next();
+  // Send error response
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    status: 'error',
+    message: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 };

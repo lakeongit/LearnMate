@@ -4,6 +4,7 @@ import { setupAuth } from "./auth";
 import { setupChat } from "./chat";
 import { setupLearningContent } from "./learning-content";
 import { setupAchievements } from "./achievements";
+import { setupErrorLogging, errorLoggingMiddleware, logError, ErrorSeverity } from "./error-logging";
 import { db } from "@db";
 import { users } from "@db/schema";
 import { eq } from "drizzle-orm";
@@ -21,20 +22,21 @@ export class AppError extends Error {
 }
 
 export function registerRoutes(app: Express): Server {
+  // Setup error logging first
+  setupErrorLogging(app);
+
   // Global error handling middleware
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-    console.error('Error:', {
-      name: err.name,
-      message: err.message,
-      stack: err.stack,
-      path: req.path,
-      method: req.method,
-      query: req.query,
-      body: req.body,
-      timestamp: new Date().toISOString(),
-    });
-
+    // Log the error with our enhanced logging system
     if (err instanceof AppError) {
+      logError(err, err.statusCode >= 500 ? ErrorSeverity.CRITICAL : ErrorSeverity.ERROR, {
+        isOperational: err.isOperational,
+        path: req.path,
+        method: req.method,
+        query: req.query,
+        body: req.body,
+      });
+
       return res.status(err.statusCode).json({
         status: 'error',
         message: err.message,
@@ -42,7 +44,15 @@ export function registerRoutes(app: Express): Server {
       });
     }
 
-    // For unknown errors, send generic message in production
+    // For unknown errors, log as critical
+    logError(err, ErrorSeverity.CRITICAL, {
+      path: req.path,
+      method: req.method,
+      query: req.query,
+      body: req.body,
+    });
+
+    // Send generic message in production
     res.status(500).json({
       status: 'error',
       message: process.env.NODE_ENV === 'production'
@@ -52,19 +62,21 @@ export function registerRoutes(app: Express): Server {
     });
   });
 
+  // Add error logging middleware
+  app.use(errorLoggingMiddleware);
+
   // Middleware to ensure user is authenticated
   const ensureAuthenticated = (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ error: "Unauthorized" });
+      throw new AppError(401, "Unauthorized");
     }
     next();
   };
 
-  // Update user profile endpoint
+  // Update user profile endpoint with better error handling
   app.patch("/api/users/profile", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = req.user!;
-      console.log("Received profile update request:", req.body);
 
       // Allow updating only specific fields
       const { name, grade, learningStyle, subjects } = req.body;
@@ -85,8 +97,12 @@ export function registerRoutes(app: Express): Server {
         message: "Profile updated successfully",
         data: updatedUser
       });
-    } catch (error) {
-      console.error("Profile update error:", error);
+    } catch (error: any) {
+      logError(error, ErrorSeverity.ERROR, {
+        userId: req.user?.id,
+        action: 'profile_update',
+        requestBody: req.body
+      });
       next(error);
     }
   });
@@ -95,7 +111,7 @@ export function registerRoutes(app: Express): Server {
   setupAuth(app);
   setupChat(app);
   setupLearningContent(app);
-  setupAchievements(app); // Register achievements routes
+  setupAchievements(app);
 
   // Create HTTP server
   const httpServer = createServer(app);
