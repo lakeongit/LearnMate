@@ -39,6 +39,13 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   const { messages, sendMessage, isLoading, clearMessages, metadata } = useChat(user.id);
   const { toast } = useToast();
   const [studyTimer, setStudyTimer] = useState(0);
+
+const [searchQuery, setSearchQuery] = useState("");
+
+const filteredMessages = messages?.filter(message => 
+  message.content.toLowerCase().includes(searchQuery.toLowerCase())
+);
+
   const [userLearningStyle, setUserLearningStyle] = useState(user.learningStyle || 'visual');
 
   // Initialize WebSocket connection
@@ -196,6 +203,14 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
         </div>
       </div>
 
+      <div className="p-2 border-b">
+        <Input
+          placeholder="Search messages..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="max-w-sm mx-auto"
+        />
+      </div>
       <ScrollArea className="flex-1 p-6">
         <div className="space-y-6 max-w-3xl mx-auto">
           {messages?.map((message, i) => (

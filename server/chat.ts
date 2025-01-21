@@ -62,7 +62,10 @@ export async function setupChat(app: Express) {
       }
 
       // Prepare system message
-      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${context?.learningStyle || user.learningStyle || 'visual'} learning. 
+      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${context?.learningStyle || user.learningStyle || 'visual'} learning.
+      Current subject: ${context?.subject || 'General'}
+      Session duration: ${context?.sessionDuration ? Math.floor(context.sessionDuration / 60) + ' minutes' : 'New session'}
+      Previous mastery: ${user.subjects?.join(', ') || 'No subjects mastered yet'} 
       You are actively teaching ${subject}. Your role is to:
 
       1. Provide academically rigorous, well-researched responses
