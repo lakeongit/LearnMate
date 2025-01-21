@@ -122,7 +122,7 @@ export function MicroLearningModules({ student, onSelectUnit }: MicroLearningMod
               <SelectValue placeholder="Select grade range" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Grades</SelectItem>
+              <SelectItem value="all">All Grades</SelectItem>
               {gradeRanges.map((range) => (
                 <SelectItem key={range.label} value={range.label}>
                   {range.label}
