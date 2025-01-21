@@ -6,8 +6,9 @@ import { Header } from "@/components/layout/header";
 import { RecommendationsPanel } from "@/components/learning/recommendations-panel";
 import { LearningDashboard } from "@/components/learning/learning-dashboard";
 import { AchievementsPanel } from "@/components/learning/achievements-panel";
+import { StudyPlaylist } from "@/components/learning/study-playlist";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, MessageSquare, Sparkles, Trophy } from "lucide-react";
+import { BookOpen, MessageSquare, Sparkles, Trophy, ListMusic } from "lucide-react";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -42,6 +43,10 @@ export default function Home() {
               <BookOpen className="h-4 w-4" />
               Learning
             </TabsTrigger>
+            <TabsTrigger value="playlist" className="gap-2">
+              <ListMusic className="h-4 w-4" />
+              Study Playlist
+            </TabsTrigger>
             <TabsTrigger value="chat" className="gap-2">
               <MessageSquare className="h-4 w-4" />
               AI Tutor
@@ -58,6 +63,10 @@ export default function Home() {
 
           <TabsContent value="learning" className="mt-6">
             <LearningDashboard student={student} />
+          </TabsContent>
+
+          <TabsContent value="playlist" className="mt-6">
+            <StudyPlaylist student={student} />
           </TabsContent>
 
           <TabsContent value="chat" className="mt-6">
