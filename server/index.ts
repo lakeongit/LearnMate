@@ -1,14 +1,25 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { authLimiter, structuredLogging, securityHeaders } from "./middleware";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Apply security headers
+app.use(securityHeaders);
+
 // Setup authentication before routes
 import { setupAuth } from "./auth";
 setupAuth(app);
+
+// Apply rate limiting to auth routes
+app.use("/api/login", authLimiter);
+app.use("/api/register", authLimiter);
+
+// Apply structured logging middleware
+app.use(structuredLogging);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -43,12 +54,17 @@ app.use((req, res, next) => {
 (async () => {
   const server = registerRoutes(app);
 
+  // Global error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    // Log error with stack trace in development
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(err.stack);
+    }
+
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after
