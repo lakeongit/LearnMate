@@ -9,12 +9,31 @@ interface TypingStatus {
 
 export function setupWebSocket(server: Server) {
   const wss = new WebSocketServer({ 
-    server,  // Attach directly to HTTP server
-    path: '/ws'
+    noServer: true,  // Important: use noServer for custom upgrade handling
   });
 
   const clients = new Map<number, Set<WebSocket>>();
   const PING_INTERVAL = 30000; // 30 seconds
+
+  // Handle upgrade requests manually to properly handle vite HMR
+  server.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url!, `http://${request.headers.host}`).pathname;
+
+    // Skip vite HMR requests
+    if (request.headers['sec-websocket-protocol'] === 'vite-hmr') {
+      return;
+    }
+
+    // Only handle /ws path
+    if (pathname === '/ws') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    } else {
+      // Close the connection for other paths
+      socket.destroy();
+    }
+  });
 
   // Keep-alive ping
   setInterval(() => {
@@ -25,11 +44,10 @@ export function setupWebSocket(server: Server) {
     });
   }, PING_INTERVAL);
 
-  wss.on('connection', (ws: WebSocket, request) => {
+  wss.on('connection', (ws: WebSocket) => {
     let userId: number | undefined;
-
-    // Set up heartbeat
     let pingTimeout: NodeJS.Timeout;
+
     const heartbeat = () => {
       clearTimeout(pingTimeout);
       pingTimeout = setTimeout(() => {
@@ -55,7 +73,11 @@ export function setupWebSocket(server: Server) {
           clients.get(userId)!.add(ws);
 
           // Send immediate confirmation
-          ws.send(JSON.stringify({ type: 'registered', userId }));
+          ws.send(JSON.stringify({ 
+            type: 'registered', 
+            userId,
+            status: 'success' 
+          }));
         }
       } catch (error) {
         logError(error, ErrorSeverity.ERROR, {
@@ -64,7 +86,6 @@ export function setupWebSocket(server: Server) {
           error: error instanceof Error ? error.message : 'Unknown error'
         });
 
-        // Send error back to client
         ws.send(JSON.stringify({ 
           type: 'error', 
           message: 'Failed to process message' 
@@ -99,7 +120,8 @@ export function setupWebSocket(server: Server) {
 
     const message = JSON.stringify({
       type: 'typing_status',
-      isTyping
+      isTyping,
+      timestamp: Date.now()
     });
 
     userClients.forEach(client => {

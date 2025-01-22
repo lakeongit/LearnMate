@@ -1,9 +1,5 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth } from "./auth";
-import { setupChat } from "./chat";
-import { setupLearningContent } from "./learning-content";
-import { setupAchievements } from "./achievements";
 import { setupErrorLogging, errorLoggingMiddleware, logError, ErrorSeverity } from "./error-logging";
 import { db } from "@db";
 import { users } from "@db/schema";
@@ -16,17 +12,10 @@ export function registerRoutes(app: Express): Server {
   // Add error logging middleware
   app.use(errorLoggingMiddleware);
 
-  // Setup authentication before other routes
-  setupAuth(app);
+  // Create HTTP server first so WebSocket can attach to it
+  const httpServer = createServer(app);
 
-  // Setup chat functionality next
-  setupChat(app);
-
-  // Setup other route handlers
-  setupLearningContent(app);
-  setupAchievements(app);
-
-  // Update user profile endpoint with better error handling
+  // API Routes
   app.patch("/api/users/profile", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = req.user!;
@@ -59,9 +48,6 @@ export function registerRoutes(app: Express): Server {
       next(error);
     }
   });
-
-  // Create HTTP server
-  const httpServer = createServer(app);
 
   return httpServer;
 }
