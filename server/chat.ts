@@ -56,14 +56,6 @@ export async function setupChat(app: Express) {
       res.status(500).json({ error: error.message });
     }
   });
-  // Middleware to ensure user is authenticated
-  const ensureAuthenticated = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-    next();
-  };
-
   // Create HTTP server for WebSocket
   const server = createServer(app);
   const { broadcastTypingStatus } = setupWebSocket(server);
