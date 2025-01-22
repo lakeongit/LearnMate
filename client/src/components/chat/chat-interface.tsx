@@ -24,6 +24,16 @@ interface ChatInterfaceProps {
   user: UserType;
 }
 
+interface SendMessageParams {
+  content: string;
+  context?: {
+    subject?: string;
+    topic?: string;
+    learningStyle?: string;
+    sessionDuration?: number;
+  };
+}
+
 const subjects = [
   "Mathematics",
   "Science",
@@ -48,13 +58,13 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
     lastUpdated: string;
   }[]>([]);
 
-  const { 
-    messages, 
-    sendMessage, 
-    isLoading, 
-    clearMessages, 
+  const {
+    messages,
+    sendMessage,
+    isLoading,
+    clearMessages,
     metadata,
-    updateLearningStyle 
+    updateLearningStyle
   } = useChat(user.id);
 
   const { toast } = useToast();
@@ -139,10 +149,10 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   useEffect(() => {
     const sendWelcomeMessage = async () => {
       if (!user?.id || messages.length > 0 || isLoading) return;
-      
+
       const subjects = user.subjects?.length ? user.subjects.join(", ") : "various subjects";
       const welcomeMessage = `Hi ${user.name || 'there'}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${subjects}. Would you like to explore any of these subjects?`;
-      
+
       try {
         await sendMessage(welcomeMessage, {
           learningStyle: userLearningStyle,
@@ -152,7 +162,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
         console.error('Welcome message error:', error);
       }
     };
-    
+
     const timer = setTimeout(sendWelcomeMessage, 1000);
     return () => clearTimeout(timer);
   }, [user?.id, messages.length, isLoading, sendMessage, userLearningStyle]);
@@ -162,23 +172,24 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
     if (input.trim() && !isLoading) {
       const currentInput = input;
       setInput("");
-      let progressTimeout: NodeJS.Timeout;
-      
+
       try {
-        progressTimeout = setTimeout(() => setShowProgressIndicator(true), 1000);
+        const messageParams: SendMessageParams = {
+          content: currentInput,
+          context: {
+            subject: selectedSubject || undefined,
+            topic: selectedTopic || undefined,
+            learningStyle: userLearningStyle,
+            sessionDuration: studyTimer,
+          }
+        };
 
-        const response = await sendMessage(currentInput, {
-          subject: selectedSubject || undefined,
-          topic: selectedTopic || undefined,
-          learningStyle: userLearningStyle,
-          sessionDuration: studyTimer,
-          previousProgress: userProgress
-            .find(p => p.subject === selectedSubject)
-            ?.mastery
-        });
+        const response = await sendMessage(messageParams);
 
-        if (!response) throw new Error("No response from server");
-        
+        if (!response) {
+          throw new Error("Failed to send message");
+        }
+
         await Promise.all([loadChatList(), loadUserProgress()]);
       } catch (error) {
         console.error('Message error:', error);
@@ -189,14 +200,12 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
           variant: "destructive"
         });
       } finally {
-        clearTimeout(progressTimeout);
-        setShowProgressIndicator(false);
         setIsAiTyping(false);
       }
     }
   };
 
-  const filteredMessages = messages?.filter(message => 
+  const filteredMessages = messages?.filter(message =>
     message?.content?.toLowerCase().includes(searchQuery?.toLowerCase() || '')
   );
 
@@ -279,8 +288,8 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
                 </Select>
               )}
 
-              <Select 
-                value={userLearningStyle} 
+              <Select
+                value={userLearningStyle}
                 onValueChange={adaptLearningStyle}
               >
                 <SelectTrigger className="w-[180px]">
@@ -323,8 +332,8 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
             {selectedSubject && userProgress.find(p => p.subject === selectedSubject) && (
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">Current mastery:</span>
-                <Progress 
-                  value={userProgress.find(p => p.subject === selectedSubject)?.mastery} 
+                <Progress
+                  value={userProgress.find(p => p.subject === selectedSubject)?.mastery}
                   className="w-[100px]"
                 />
               </div>
@@ -347,8 +356,8 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
                 <MessageBubble
                   content={message.content || ''}
                   isUser={message.role === 'user'}
-                  context={message.context}
-                  status={message.status}
+                  context={message.context || {}}
+                  status={message.status || 'pending'}
                   isLoading={i === messages.length - 1 && isLoading && message.role === 'user'}
                   className={message.role === 'user' ? 'bg-primary/10' : 'bg-muted'}
                 />
