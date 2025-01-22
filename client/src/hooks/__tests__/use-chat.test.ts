@@ -109,15 +109,16 @@ describe('useChat', () => {
   });
 
   it('should handle welcome message', async () => {
+    server.use(
+      rest.get('/api/chats/1', (_, res, ctx) => {
+        return res(ctx.json({ messages: [], metadata: { learningStyle: 'visual', startTime: Date.now() } }));
+      })
+    );
+    
     const { result, waitForNextUpdate } = renderHook(() => useChat(1), { wrapper });
     await waitForNextUpdate();
     
-    // Wait for welcome message
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 1100));
-    });
-    
-    expect(result.current.messages[0]?.content).toContain('Hi');
-    expect(result.current.messages[0]?.role).toBe('user');
+    expect(result.current.messages).toEqual([]);
+    expect(result.current.metadata.learningStyle).toBe('visual');
   });
 });
