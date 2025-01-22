@@ -35,11 +35,9 @@ export const learningGoals = pgTable("learning_goals", {
 export const chatSessions = pgTable("chat_sessions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
-  learningGoalId: integer("learning_goal_id").references(() => learningGoals.id),
   startTime: timestamp("start_time").defaultNow().notNull(),
   endTime: timestamp("end_time"),
-  context: jsonb("context"), // Stores session context like current topic, learning preferences
-  metrics: jsonb("metrics"), // Stores engagement metrics, comprehension levels
+  context: jsonb("context").default({}), // Stores session context like current topic, learning preferences
   status: text("status").default('active').notNull(), // active, completed, interrupted
 });
 
@@ -79,6 +77,7 @@ export const contentModules = pgTable("content_modules", {
 export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  chatSessionId: integer("chat_session_id").references(() => chatSessions.id),
   content: text("content").notNull(),
   role: text("role").notNull(), // 'user' or 'assistant'
   status: text("status"), // 'sending', 'delivered', 'error'
@@ -94,12 +93,9 @@ export const chatMessages = pgTable("chat_messages", {
 export const learningProgress = pgTable("learning_progress", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
-  unitId: integer("unit_id").references(() => learningUnits.id).notNull(),
-  completed: boolean("completed").default(false).notNull(),
-  score: integer("score"),
-  timeSpent: integer("time_spent"), // in minutes
-  mastery: integer("mastery"), // percentage
-  completedAt: timestamp("completed_at"),
+  subject: text("subject").notNull(),
+  mastery: integer("mastery").default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

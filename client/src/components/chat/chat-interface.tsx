@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useChat } from "@/hooks/use-chat";
 import { MessageBubble } from "./message-bubble";
 import { Input } from "@/components/ui/input";
@@ -61,14 +61,12 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   const [studyTimer, setStudyTimer] = useState(0);
   const [userLearningStyle, setUserLearningStyle] = useState(user.learningStyle || 'visual');
 
-  // Initialize WebSocket connection
   useWebSocket({
     userId: user.id,
     onTypingStatusChange: (isTyping) => setIsAiTyping(isTyping),
   });
 
-  // Load chat list
-  const loadChatList = () => {
+  const loadChatList = useCallback(() => {
     fetch(`/api/chats/${user.id}/list`)
       .then(res => res.json())
       .then(data => {
@@ -83,22 +81,20 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
         console.error('Error fetching chat list:', error);
         setChats([]);
       });
-  };
+  }, [user.id]);
 
-  // Load user progress
-  const loadUserProgress = () => {
+  const loadUserProgress = useCallback(() => {
     fetch(`/api/learning-progress/${user.id}`)
       .then(res => res.json())
       .then(data => setUserProgress(data))
       .catch(error => console.error('Error loading progress:', error));
-  };
+  }, [user.id]);
 
   useEffect(() => {
     loadChatList();
     loadUserProgress();
-  }, [user.id]);
+  }, [loadChatList, loadUserProgress]);
 
-  // Handle creating a new chat
   const handleNewChat = () => {
     clearMessages();
     setInput("");
@@ -107,7 +103,6 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
     setSelectedTopic("");
   };
 
-  // Handle selecting an existing chat
   const handleSelectChat = (chatId: number) => {
     setCurrentChatId(chatId);
     setInput("");
@@ -132,7 +127,6 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
       });
   };
 
-  // Send welcome message on first load
   useEffect(() => {
     const sendWelcomeMessage = async () => {
       if (messages.length === 0 && !isLoading) {
@@ -188,12 +182,10 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
     }
   };
 
-  // Filter messages based on search query
   const filteredMessages = messages?.filter(message => 
     message.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Start a timed study session
   const startStudySession = (minutes: number) => {
     setStudyTimer(minutes * 60);
     const interval = setInterval(() => {

@@ -35,11 +35,13 @@ const DEFAULT_SESSION: ChatSession = {
   },
 };
 
+let welcomeMessageSent = false;
+
 export function useChat(studentId: number) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: chatSession = DEFAULT_SESSION } = useQuery<ChatSession>({
+  const { data: chatSession = DEFAULT_SESSION, isError } = useQuery<ChatSession>({
     queryKey: ["/api/chats", studentId],
     queryFn: async () => {
       try {
@@ -48,13 +50,15 @@ export function useChat(studentId: number) {
         });
 
         if (!res.ok) {
-          console.error("Chat API Error:", res.status, res.statusText);
-          const errorText = await res.text();
-          throw new Error(errorText);
+          throw new Error(await res.text());
         }
 
         const data = await res.json();
-        console.log("Chat API Response:", data);
+
+        // Reset welcome message flag when loading a new session
+        if (!data.messages?.length) {
+          welcomeMessageSent = false;
+        }
 
         return {
           messages: data.messages || [],
@@ -69,23 +73,26 @@ export function useChat(studentId: number) {
         throw error;
       }
     },
+    retry: false,
   });
 
   const sendMessage = useMutation({
     mutationFn: async ({ content, context }: { content: string; context?: Message["context"] }) => {
       try {
-        // Update message status in cache while sending
-        const optimisticUpdate: Message = {
+        const optimisticMessage: Message = {
           role: "user",
           content,
           status: "sending",
           context,
         };
 
+        // Store previous state for rollback
         const previousData = queryClient.getQueryData<ChatSession>(["/api/chats", studentId]);
+
+        // Optimistically update UI
         queryClient.setQueryData<ChatSession>(["/api/chats", studentId], old => ({
           ...old!,
-          messages: [...(old?.messages || []), optimisticUpdate],
+          messages: [...(old?.messages || []), optimisticMessage],
         }));
 
         const res = await fetch(`/api/chats/${studentId}/messages`, {
@@ -102,38 +109,37 @@ export function useChat(studentId: number) {
         });
 
         if (!res.ok) {
-          const errorText = await res.text();
-          console.error("Send message error:", errorText);
-          throw new Error(errorText);
+          throw new Error(await res.text());
         }
 
         const data = await res.json();
-        console.log("Send message response:", data);
 
         // Update message status to delivered
-        const updatedUserMessage = { ...optimisticUpdate, status: "delivered" as const };
+        const updatedMessages = data.messages.map((msg: Message) => ({
+          ...msg,
+          status: msg.role === 'user' ? 'delivered' : msg.status,
+        }));
+
         return {
-          messages: [...data.messages],
+          messages: updatedMessages,
           metadata: {
             ...DEFAULT_SESSION.metadata,
             ...data.metadata,
           },
         };
       } catch (error) {
-        console.error("Send message error:", error);
-        // Revert to previous state and mark message as error
-        queryClient.setQueryData<ChatSession>(["/api/chats", studentId], previousData => ({
-          ...previousData!,
+        // Revert to previous state on error
+        queryClient.setQueryData<ChatSession>(["/api/chats", studentId], old => ({
+          ...old!,
           messages: [
-            ...(previousData?.messages || []),
-            { ...optimisticUpdate, status: "error" as const },
+            ...(old?.messages || []).slice(0, -1),
+            { role: 'user', content, status: 'error' as const },
           ],
         }));
         throw error;
       }
     },
     onSuccess: (newSession: ChatSession) => {
-      // Update the cache with both user and assistant messages
       queryClient.setQueryData<ChatSession>(["/api/chats", studentId], {
         ...newSession,
         metadata: {
@@ -146,7 +152,7 @@ export function useChat(studentId: number) {
       console.error("Chat error:", error);
       toast({
         title: "Error sending message",
-        description: error.message || "Failed to send message",
+        description: error.message || "Failed to send message. Please try again.",
         variant: "destructive",
       });
     },
@@ -187,6 +193,7 @@ export function useChat(studentId: number) {
       });
 
       if (!res.ok) throw new Error(await res.text());
+      welcomeMessageSent = false;
       return res.json();
     },
     onSuccess: () => {
@@ -203,6 +210,20 @@ export function useChat(studentId: number) {
   const clearMessages = () => {
     endSession.mutate();
   };
+
+  // Only send welcome message once when no messages exist
+  const shouldSendWelcome = !welcomeMessageSent && (!chatSession.messages || chatSession.messages.length === 0);
+  if (shouldSendWelcome && !isError) {
+    welcomeMessageSent = true;
+    return {
+      messages: [],
+      metadata: chatSession.metadata,
+      sendMessage,
+      updateLearningStyle,
+      isLoading: false,
+      clearMessages,
+    };
+  }
 
   return {
     messages: chatSession.messages,
