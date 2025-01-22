@@ -183,7 +183,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   };
 
   const filteredMessages = messages?.filter(message => 
-    message.content.toLowerCase().includes(searchQuery.toLowerCase())
+    message?.content?.toLowerCase().includes(searchQuery?.toLowerCase() || '')
   );
 
   const startStudySession = (minutes: number) => {
@@ -327,11 +327,11 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
         <ScrollArea className="flex-1 p-6">
           <div className="space-y-6 max-w-3xl mx-auto">
             {filteredMessages?.map((message, i) => (
-              <div key={message.id || i} className="flex items-start gap-3">
+              <div key={i} className="flex items-start gap-3">
                 {message.role === 'assistant' && <Bot className="h-6 w-6 text-primary mt-1" />}
                 {message.role === 'user' && <User className="h-6 w-6 text-muted-foreground mt-1" />}
                 <MessageBubble
-                  content={message.content}
+                  content={message.content || ''}
                   isUser={message.role === 'user'}
                   context={message.context}
                   status={message.status}
