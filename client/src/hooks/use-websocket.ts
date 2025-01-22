@@ -6,24 +6,39 @@ interface WebSocketHookOptions {
   onTypingStatusChange?: (isTyping: boolean) => void;
 }
 
+interface WebSocketMessage {
+  type: 'register' | 'message' | 'typing_status';
+  userId?: number;
+  content?: string;
+  isTyping?: boolean;
+}
+
 export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOptions) {
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
 
   const connect = useCallback(() => {
     try {
+      // Clear any existing connection
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
       ws.onopen = () => {
         console.log('WebSocket connected');
-        ws.send(JSON.stringify({ type: 'register', userId }));
+        // Register user immediately after connection
+        const message: WebSocketMessage = { type: 'register', userId };
+        ws.send(JSON.stringify(message));
       };
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'typing_status') {
+          const data = JSON.parse(event.data) as WebSocketMessage;
+          if (data.type === 'typing_status' && typeof data.isTyping === 'boolean') {
             onTypingStatusChange?.(data.isTyping);
           }
         } catch (error) {
@@ -38,8 +53,11 @@ export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOpti
 
       ws.onclose = () => {
         console.log('WebSocket disconnected');
-        // Attempt to reconnect after 1 second
-        setTimeout(connect, 1000);
+        // Clear the current connection
+        wsRef.current = null;
+
+        // Attempt to reconnect after a delay (exponential backoff could be implemented here)
+        reconnectTimeoutRef.current = setTimeout(connect, 2000);
       };
 
       ws.onerror = (error) => {
@@ -66,6 +84,10 @@ export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOpti
   useEffect(() => {
     connect();
     return () => {
+      // Clean up WebSocket connection and any pending reconnection attempts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -73,20 +95,20 @@ export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOpti
     };
   }, [connect]);
 
-  const sendMessage = useCallback((message: string) => {
+  const sendMessage = useCallback((content: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ 
-        type: 'message', 
-        content: message,
-        userId 
-      }));
+      const message: WebSocketMessage = {
+        type: 'message',
+        content,
+        userId
+      };
+      wsRef.current.send(JSON.stringify(message));
       return true;
     }
     return false;
   }, [userId]);
 
   return {
-    ws: wsRef.current,
     sendMessage,
     isConnected: wsRef.current?.readyState === WebSocket.OPEN
   };

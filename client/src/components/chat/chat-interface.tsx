@@ -34,6 +34,13 @@ interface SendMessageParams {
   };
 }
 
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  status?: 'pending' | 'delivered' | 'error';
+  context?: Record<string, unknown>;
+}
+
 const subjects = [
   "Mathematics",
   "Science",
@@ -129,9 +136,13 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
       .then(res => res.json())
       .then(data => {
         if (data.messages) {
-          data.messages.forEach((msg: any) => {
+          data.messages.forEach((msg: Message) => {
             if (msg.role === 'user') {
-              sendMessage(msg.content, msg.context);
+              const messageParams: SendMessageParams = {
+                content: msg.content,
+                context: msg.context
+              };
+              sendMessage(messageParams);
             }
           });
         }
@@ -151,13 +162,16 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
       if (!user?.id || messages.length > 0 || isLoading) return;
 
       const subjects = user.subjects?.length ? user.subjects.join(", ") : "various subjects";
-      const welcomeMessage = `Hi ${user.name || 'there'}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${subjects}. Would you like to explore any of these subjects?`;
-
-      try {
-        await sendMessage(welcomeMessage, {
+      const welcomeMessage: SendMessageParams = {
+        content: `Hi ${user.name || 'there'}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${subjects}. Would you like to explore any of these subjects?`,
+        context: {
           learningStyle: userLearningStyle,
           sessionDuration: 0
-        });
+        }
+      };
+
+      try {
+        await sendMessage(welcomeMessage);
       } catch (error) {
         console.error('Welcome message error:', error);
       }
@@ -172,6 +186,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
     if (input.trim() && !isLoading) {
       const currentInput = input;
       setInput("");
+      setShowProgressIndicator(true);
 
       try {
         const messageParams: SendMessageParams = {
@@ -184,9 +199,9 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
           }
         };
 
-        const response = await sendMessage(messageParams);
+        const success = await sendMessage(messageParams);
 
-        if (!response) {
+        if (!success) {
           throw new Error("Failed to send message");
         }
 
@@ -200,6 +215,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
           variant: "destructive"
         });
       } finally {
+        setShowProgressIndicator(false);
         setIsAiTyping(false);
       }
     }
@@ -349,7 +365,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
 
         <ScrollArea className="flex-1 p-6">
           <div className="space-y-6 max-w-3xl mx-auto">
-            {filteredMessages?.map((message, i) => (
+            {filteredMessages?.map((message: Message, i: number) => (
               <div key={i} className="flex items-start gap-3">
                 {message.role === 'assistant' && <Bot className="h-6 w-6 text-primary mt-1" />}
                 {message.role === 'user' && <User className="h-6 w-6 text-muted-foreground mt-1" />}
