@@ -109,7 +109,9 @@ export function useChat(studentId: number) {
 
         const contentType = res.headers.get("content-type");
         if (!contentType?.includes("application/json")) {
-          throw new Error("Server returned non-JSON response");
+          const responseText = await res.text();
+          console.error('Unexpected response:', responseText);
+          throw new Error(`Server returned non-JSON response: ${res.status} ${res.statusText}`);
         }
 
         if (!res.ok) {

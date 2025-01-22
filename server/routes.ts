@@ -105,6 +105,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.post("/api/chat/messages", requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Content-Type', 'application/json');
     try {
       const { content, subject } = req.body;
       const userId = req.user!.id;
