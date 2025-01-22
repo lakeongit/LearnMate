@@ -116,20 +116,29 @@ describe('useChat', () => {
           metadata: { 
             learningStyle: 'visual', 
             startTime: Date.now() 
-          },
-          isTestEnvironment: true
+          }
+        }));
+      }),
+      rest.post('/api/chats/1/messages', (_, res, ctx) => {
+        return res(ctx.json({
+          messages: [{
+            role: 'assistant',
+            content: 'Welcome message',
+            status: 'delivered'
+          }],
+          metadata: {
+            learningStyle: 'visual',
+            startTime: Date.now()
+          }
         }));
       })
     );
     
-    const { result, waitForNextUpdate } = renderHook(() => useChat(1), { wrapper });
-    await waitForNextUpdate();
+    const { result } = renderHook(() => useChat(1), { wrapper });
     
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(result.current.messages.length).toBe(1);
+      expect(result.current.metadata.learningStyle).toBe('visual');
     });
-    
-    expect(result.current.metadata.learningStyle).toBe('visual');
-    expect(result.current.messages).toBeDefined();
   });
 });
