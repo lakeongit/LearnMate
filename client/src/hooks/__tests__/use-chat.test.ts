@@ -1,3 +1,4 @@
+
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useChat } from '../use-chat';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -25,9 +26,8 @@ describe('useChat', () => {
 
   it('should initialize with empty messages and default metadata', async () => {
     const { result, waitForNextUpdate } = renderHook(() => useChat(1), { wrapper });
-
     await waitForNextUpdate();
-
+    
     expect(result.current.messages).toEqual([]);
     expect(result.current.metadata).toEqual({
       learningStyle: 'visual',
@@ -37,16 +37,15 @@ describe('useChat', () => {
 
   it('should send message and update messages list', async () => {
     const { result, waitForNextUpdate } = renderHook(() => useChat(1), { wrapper });
-
     await waitForNextUpdate();
 
     await act(async () => {
-      await result.current.sendMessage('Hello', { subject: 'math' });
+      await result.current.sendMessage('Test message', { subject: 'math' });
     });
 
     expect(result.current.messages).toContainEqual(
       expect.objectContaining({
-        content: 'Hello',
+        content: 'Test message',
         role: 'user',
         status: 'delivered',
       })
@@ -61,18 +60,17 @@ describe('useChat', () => {
     );
 
     const { result, waitForNextUpdate } = renderHook(() => useChat(1), { wrapper });
-
     await waitForNextUpdate();
 
     await act(async () => {
       await expect(
-        result.current.sendMessage('Hello', { subject: 'math' })
+        result.current.sendMessage('Test error message', { subject: 'math' })
       ).rejects.toThrow();
     });
 
     expect(result.current.messages).toContainEqual(
       expect.objectContaining({
-        content: 'Hello',
+        content: 'Test error message',
         status: 'error',
       })
     );
@@ -80,7 +78,6 @@ describe('useChat', () => {
 
   it('should update learning style', async () => {
     const { result, waitForNextUpdate } = renderHook(() => useChat(1), { wrapper });
-
     await waitForNextUpdate();
 
     await act(async () => {
@@ -92,17 +89,14 @@ describe('useChat', () => {
 
   it('should clear messages when ending session', async () => {
     const { result, waitForNextUpdate } = renderHook(() => useChat(1), { wrapper });
-
     await waitForNextUpdate();
 
-    // Send a message first
     await act(async () => {
-      await result.current.sendMessage('Hello', { subject: 'math' });
+      await result.current.sendMessage('Test message', { subject: 'math' });
     });
 
     expect(result.current.messages.length).toBeGreaterThan(0);
 
-    // Clear messages
     await act(async () => {
       await result.current.clearMessages();
     });
@@ -112,5 +106,18 @@ describe('useChat', () => {
       learningStyle: 'visual',
       startTime: expect.any(Number),
     });
+  });
+
+  it('should handle welcome message', async () => {
+    const { result, waitForNextUpdate } = renderHook(() => useChat(1), { wrapper });
+    await waitForNextUpdate();
+    
+    // Wait for welcome message
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 1100));
+    });
+    
+    expect(result.current.messages[0]?.content).toContain('Hi');
+    expect(result.current.messages[0]?.role).toBe('user');
   });
 });

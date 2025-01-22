@@ -23,6 +23,7 @@ const DEFAULT_SESSION = {
     learningStyle: 'visual',
     startTime: Date.now(),
   },
+  isTestEnvironment: process.env.NODE_ENV === 'test',
 };
 
 export function useChat(studentId: number) {
