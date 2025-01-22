@@ -8,6 +8,46 @@ import { setupWebSocket } from "./websocket";
 import { createServer } from "http";
 
 export async function setupChat(app: Express) {
+  // Get chat sessions list
+  app.get("/api/chats/:userId/list", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const sessions = await db.query.chatSessions.findMany({
+        where: eq(chatSessions.userId, userId),
+        orderBy: desc(chatSessions.updatedAt),
+      });
+      res.json(sessions);
+    } catch (error: any) {
+      logError(error, ErrorSeverity.ERROR, {
+        userId: req.user?.id,
+        action: 'fetch_chat_sessions'
+      });
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get specific chat session
+  app.get("/api/chats/:userId/:chatId", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const chatId = parseInt(req.params.chatId);
+      
+      const messages = await db.query.chatMessages.findMany({
+        where: and(
+          eq(chatMessages.userId, userId),
+          eq(chatMessages.chatSessionId, chatId)
+        ),
+        orderBy: asc(chatMessages.createdAt),
+      });
+      res.json({ messages });
+    } catch (error: any) {
+      logError(error, ErrorSeverity.ERROR, {
+        userId: req.user?.id,
+        action: 'fetch_chat_session'
+      });
+      res.status(500).json({ error: error.message });
+    }
+  });
   // Middleware to ensure user is authenticated
   const ensureAuthenticated = (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated() || !req.user) {

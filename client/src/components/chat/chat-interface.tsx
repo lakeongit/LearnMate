@@ -30,7 +30,30 @@ const subjects = [
   "Geography",
 ] as const;
 
+import { ChatList } from "./chat-list";
+
 export function ChatInterface({ user }: ChatInterfaceProps) {
+  const [chats, setChats] = useState<Array<{id: number; title: string; updatedAt: string}>>([]);
+  const [currentChatId, setCurrentChatId] = useState<number>();
+
+  useEffect(() => {
+    // Load chat list
+    fetch(`/api/chats/${user.id}/list`)
+      .then(res => res.json())
+      .then(data => setChats(data));
+  }, [user.id]);
+
+  const handleNewChat = () => {
+    setMessages([]);
+    setCurrentChatId(undefined);
+  };
+
+  const handleSelectChat = (chatId: number) => {
+    setCurrentChatId(chatId);
+    fetch(`/api/chats/${user.id}/${chatId}`)
+      .then(res => res.json())
+      .then(data => setMessages(data.messages));
+  };
   const [input, setInput] = useState("");
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
@@ -119,7 +142,14 @@ const filteredMessages = messages?.filter(message =>
   };
 
   return (
-    <div className="border rounded-lg h-[600px] flex flex-col bg-card shadow-lg">
+    <div className="border rounded-lg h-[600px] flex bg-card shadow-lg">
+      <ChatList
+        chats={chats}
+        currentChatId={currentChatId}
+        onSelectChat={handleSelectChat}
+        onNewChat={handleNewChat}
+      />
+      <div className="flex-1 flex flex-col">
       {showTutorExplainer && (
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center p-4">
           <AiTutorExplainer onDismiss={() => setShowTutorExplainer(false)} />
