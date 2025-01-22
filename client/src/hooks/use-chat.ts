@@ -71,6 +71,10 @@ export function useChat(studentId: number) {
   const sendMessage = useMutation({
     mutationFn: async ({ content, context }: { content: string; context?: Message["context"] }) => {
       try {
+        if (!content?.trim()) {
+          throw new Error('Message content cannot be empty');
+        }
+
         const optimisticMessage: Message = {
           role: "user",
           content,

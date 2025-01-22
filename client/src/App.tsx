@@ -49,7 +49,7 @@ function ProtectedRoute({ component: Component, componentProps }: ProtectedRoute
 
   if (!auth?.user) {
     if (location !== "/auth") {
-      window.location.replace("/auth");
+      setLocation("/auth");
     }
     return null;
   }

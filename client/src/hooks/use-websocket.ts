@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useToast } from "./use-toast";
 
 interface WebSocketHookOptions {
@@ -14,10 +14,13 @@ interface WebSocketMessage {
   message?: string;
 }
 
+const RECONNECT_INTERVAL = 3000;
+const MAX_RETRIES = 5;
+
 export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOptions) {
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
+  const [retryCount, setRetryCount] = useState(0);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
 
   const connect = useCallback(() => {
@@ -31,7 +34,8 @@ export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOpti
 
       ws.onopen = () => {
         console.log('WebSocket connected');
-        reconnectAttempts.current = 0;
+        setRetryCount(0); // Reset retry count on successful connection
+        clearTimeout(reconnectTimeoutRef.current); // Clear any pending reconnection attempts
         ws.send(JSON.stringify({ type: 'register', userId }));
       };
 
@@ -56,21 +60,25 @@ export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOpti
             case 'registered':
               console.log('Successfully registered with chat server');
               break;
+            default:
+              console.log("Unhandled message type:", data.type);
+              break;
           }
         } catch (error) {
           console.error('WebSocket message parsing error:', error);
+          // Consider more robust handling of parsing errors, perhaps retrying or disconnecting
         }
       };
 
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
+      ws.onclose = (event) => {
+        console.log('WebSocket disconnected', event);
         wsRef.current = null;
 
-        // Implement exponential backoff for reconnection
-        if (reconnectAttempts.current < maxReconnectAttempts) {
-          const timeout = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
-          reconnectAttempts.current++;
-          setTimeout(connect, timeout);
+        if (retryCount < MAX_RETRIES) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            setRetryCount(count => count + 1);
+            connect();
+          }, RECONNECT_INTERVAL);
         } else {
           toast({
             title: "Connection Lost",
@@ -94,7 +102,7 @@ export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOpti
         variant: "destructive"
       });
     }
-  }, [userId, onTypingStatusChange, toast]);
+  }, [userId, onTypingStatusChange, toast, retryCount]);
 
   useEffect(() => {
     connect();
@@ -102,6 +110,7 @@ export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOpti
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
+        clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, [connect]);
