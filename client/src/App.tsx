@@ -8,6 +8,7 @@ import Home from "@/pages/home";
 import AuthPage from "@/pages/auth-page";
 import LearningUnit from "@/pages/learning-unit";
 import ProfileSetup from "@/pages/profile-setup";
+import ChatPage from "@/pages/chat";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import type { User } from "@db/schema";
@@ -38,7 +39,6 @@ function ProtectedRoute({ component: Component, componentProps }: ProtectedRoute
     staleTime: 0
   });
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -47,28 +47,23 @@ function ProtectedRoute({ component: Component, componentProps }: ProtectedRoute
     );
   }
 
-  // Not authenticated
   if (!auth?.user) {
-    // Use location.replace to avoid the recursive state update
     if (location !== "/auth") {
       window.location.replace("/auth");
     }
     return null;
   }
 
-  // Check profile completion
   const isProfileComplete = auth.user.name && 
                           auth.user.grade && 
                           auth.user.learningStyle && 
                           auth.user.subjects;
 
-  // Handle profile setup redirection
   if (!isProfileComplete && location !== "/profile-setup") {
     window.location.replace("/profile-setup");
     return null;
   }
 
-  // Prevent accessing profile setup if profile is complete
   if (isProfileComplete && location === "/profile-setup") {
     window.location.replace("/");
     return null;
@@ -87,10 +82,8 @@ function App() {
       <ErrorBoundary>
         <div className="min-h-screen bg-background">
           <Switch>
-            {/* Auth page - unprotected */}
             <Route path="/auth" component={AuthPage} />
 
-            {/* Profile setup - protected */}
             <Route 
               path="/profile-setup" 
               component={() => (
@@ -98,7 +91,6 @@ function App() {
               )} 
             />
 
-            {/* Home dashboard - requires complete profile */}
             <Route 
               path="/" 
               component={() => (
@@ -106,7 +98,13 @@ function App() {
               )} 
             />
 
-            {/* Learning unit - protected */}
+            <Route 
+              path="/chat"
+              component={() => (
+                <ProtectedRoute component={ChatPage} />
+              )}
+            />
+
             <Route 
               path="/learning/:id"
               component={({ params }) => (
@@ -117,7 +115,6 @@ function App() {
               )}
             />
 
-            {/* 404 fallback */}
             <Route component={NotFound} />
           </Switch>
         </div>
