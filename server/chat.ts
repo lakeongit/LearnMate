@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "@db";
-import { chatMessages, users } from "@db/schema";
-import { eq, desc } from "drizzle-orm";
+import { chatMessages, chatSessions, users } from "@db/schema";
+import { eq, desc, and, asc } from "drizzle-orm";
 import { logError, ErrorSeverity } from "./error-logging";
 import { messageQueue } from "./queue/message-queue";
 import { setupWebSocket } from "./websocket";
@@ -22,9 +22,29 @@ export async function setupChat(app: Express) {
       const userId = parseInt(req.params.userId);
       const sessions = await db.query.chatSessions.findMany({
         where: eq(chatSessions.userId, userId),
-        orderBy: desc(chatSessions.updatedAt),
+        orderBy: desc(chatSessions.startTime),
       });
-      res.json(sessions);
+
+      // Get the first message of each session to use as title
+      const sessionsWithTitles = await Promise.all(
+        sessions.map(async (session) => {
+          const firstMessage = await db.query.chatMessages.findFirst({
+            where: and(
+              eq(chatMessages.userId, userId),
+              eq(chatMessages.role, 'user')
+            ),
+            orderBy: asc(chatMessages.createdAt),
+          });
+
+          return {
+            id: session.id,
+            title: firstMessage?.content?.slice(0, 50) || 'New Chat',
+            updatedAt: session.startTime.toISOString(),
+          };
+        })
+      );
+
+      res.json(sessionsWithTitles);
     } catch (error: any) {
       logError(error, ErrorSeverity.ERROR, {
         userId: req.user?.id,
@@ -39,7 +59,7 @@ export async function setupChat(app: Express) {
     try {
       const userId = parseInt(req.params.userId);
       const chatId = parseInt(req.params.chatId);
-      
+
       const messages = await db.query.chatMessages.findMany({
         where: and(
           eq(chatMessages.userId, userId),
@@ -47,7 +67,23 @@ export async function setupChat(app: Express) {
         ),
         orderBy: asc(chatMessages.createdAt),
       });
-      res.json({ messages });
+
+      const session = await db.query.chatSessions.findFirst({
+        where: and(
+          eq(chatSessions.userId, userId),
+          eq(chatSessions.id, chatId)
+        ),
+      });
+
+      res.json({ 
+        messages,
+        metadata: {
+          learningStyle: session?.context?.learningStyle || 'visual',
+          startTime: session?.startTime.getTime() || Date.now(),
+          subject: session?.context?.subject,
+          topic: session?.context?.topic
+        }
+      });
     } catch (error: any) {
       logError(error, ErrorSeverity.ERROR, {
         userId: req.user?.id,
@@ -56,6 +92,7 @@ export async function setupChat(app: Express) {
       res.status(500).json({ error: error.message });
     }
   });
+
   // Create HTTP server for WebSocket
   const server = createServer(app);
   const { broadcastTypingStatus } = setupWebSocket(server);
@@ -65,6 +102,27 @@ export async function setupChat(app: Express) {
     const { userId, content, context } = queuedMessage;
 
     try {
+      // Create a new chat session if none exists
+      let session = await db.query.chatSessions.findFirst({
+        where: and(
+          eq(chatSessions.userId, userId),
+          eq(chatSessions.status, 'active')
+        ),
+      });
+
+      if (!session) {
+        const [newSession] = await db
+          .insert(chatSessions)
+          .values({
+            userId,
+            startTime: new Date(),
+            status: 'active',
+            context: context || {},
+          })
+          .returning();
+        session = newSession;
+      }
+
       // Broadcast that AI is starting to type
       broadcastTypingStatus(userId, true);
 
@@ -78,6 +136,7 @@ export async function setupChat(app: Express) {
         .insert(chatMessages)
         .values({
           userId: userId,
+          chatSessionId: session.id,
           content: cleanContent,
           role: 'user',
           subject: subject,
@@ -173,11 +232,12 @@ export async function setupChat(app: Express) {
         });
       }
 
-      // Store AI response in database
+      // Store AI response in database with session ID
       const [assistantMessage] = await db
         .insert(chatMessages)
         .values({
           userId: userId,
+          chatSessionId: session.id,
           content: formattedResponse,
           role: 'assistant',
           subject: subject,
@@ -201,6 +261,51 @@ export async function setupChat(app: Express) {
   // Start the message queue processor
   messageQueue.start(processMessage);
 
+  // Clear chat / End session
+  app.post("/api/chats/:userId/end-session", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+
+      // Mark current active session as completed
+      await db
+        .update(chatSessions)
+        .set({ 
+          status: 'completed',
+          endTime: new Date()
+        })
+        .where(
+          and(
+            eq(chatSessions.userId, userId),
+            eq(chatSessions.status, 'active')
+          )
+        );
+
+      // Create a new session
+      const [newSession] = await db
+        .insert(chatSessions)
+        .values({
+          userId,
+          startTime: new Date(),
+          status: 'active',
+          context: { learningStyle: 'visual' },
+        })
+        .returning();
+
+      res.json({
+        metadata: {
+          learningStyle: 'visual',
+          startTime: newSession.startTime.getTime(),
+        }
+      });
+    } catch (error: any) {
+      logError(error, ErrorSeverity.ERROR, {
+        userId: req.user?.id,
+        action: 'end_chat_session'
+      });
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get chat history for a user
   app.get("/api/chats/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -210,16 +315,43 @@ export async function setupChat(app: Express) {
         return res.status(403).json({ error: "Unauthorized access to chat history" });
       }
 
+      // Get or create active session
+      let session = await db.query.chatSessions.findFirst({
+        where: and(
+          eq(chatSessions.userId, userId),
+          eq(chatSessions.status, 'active')
+        ),
+      });
+
+      if (!session) {
+        const [newSession] = await db
+          .insert(chatSessions)
+          .values({
+            userId,
+            startTime: new Date(),
+            status: 'active',
+            context: { learningStyle: req.user.learningStyle || 'visual' },
+          })
+          .returning();
+        session = newSession;
+      }
+
+      // Get messages for current active session
       const messages = await db.query.chatMessages.findMany({
-        where: eq(chatMessages.userId, userId),
-        orderBy: desc(chatMessages.createdAt),
+        where: and(
+          eq(chatMessages.userId, userId),
+          eq(chatMessages.chatSessionId, session.id)
+        ),
+        orderBy: asc(chatMessages.createdAt),
       });
 
       res.json({
         messages,
         metadata: {
-          learningStyle: req.user.learningStyle || 'visual',
-          startTime: Date.now(),
+          learningStyle: session.context?.learningStyle || req.user.learningStyle || 'visual',
+          startTime: session.startTime.getTime(),
+          subject: session.context?.subject,
+          topic: session.context?.topic
         }
       });
     } catch (error: any) {
@@ -228,67 +360,6 @@ export async function setupChat(app: Express) {
         action: 'fetch_chat_history'
       });
       res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Send a new message
-  app.post("/api/chats/:userId/messages", ensureAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      const { content, context } = req.body;
-
-      if (!req.user || req.user.id !== userId) {
-        return res.status(403).json({ error: "Unauthorized message send attempt" });
-      }
-
-      if (!content) {
-        return res.status(400).json({ error: "Message content is required" });
-      }
-
-      // Enqueue the message
-      const messageId = await messageQueue.enqueue(userId, content, context);
-
-      // Wait for processing to complete (with timeout)
-      let attempts = 0;
-      const maxAttempts = 30; // 30 seconds timeout
-      let result = null;
-
-      while (attempts < maxAttempts) {
-        const status = await messageQueue.getStatus(messageId);
-        if (status?.status === 'completed') {
-          result = status;
-          break;
-        }
-        if (status?.status === 'failed') {
-          throw new Error("Failed to process message");
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        attempts++;
-      }
-
-      if (!result) {
-        throw new Error("Message processing timed out");
-      }
-
-      // Return both messages with metadata
-      res.json({
-        messages: [result.userMessage, result.assistantMessage],
-        metadata: {
-          ...context,
-          startTime: Date.now(),
-        }
-      });
-    } catch (error: any) {
-      console.error("Chat error:", error);
-      logError(error, ErrorSeverity.ERROR, {
-        userId: req.user?.id,
-        action: 'send_chat_message',
-        error: error.message
-      });
-      res.status(500).json({
-        error: "Failed to process chat message",
-        details: error.message
-      });
     }
   });
 
