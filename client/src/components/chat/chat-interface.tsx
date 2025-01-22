@@ -138,23 +138,24 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
 
   useEffect(() => {
     const sendWelcomeMessage = async () => {
-      if (messages.length === 0 && !isLoading) {
-        const welcomeMessage = `Hi ${user.name}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${user.subjects?.join(", ") || "various subjects"}. Would you like to explore any of these subjects?`;
-        try {
-          await sendMessage(welcomeMessage, {
-            learningStyle: userLearningStyle,
-          });
-        } catch (error) {
-          toast({
-            title: "Error sending welcome message",
-            description: "Please try refreshing the page",
-            variant: "destructive"
-          });
-        }
+      if (!user?.id || messages.length > 0 || isLoading) return;
+      
+      const subjects = user.subjects?.length ? user.subjects.join(", ") : "various subjects";
+      const welcomeMessage = `Hi ${user.name || 'there'}! 👋 I'm your AI tutor. What would you like to learn about today? I notice you're interested in ${subjects}. Would you like to explore any of these subjects?`;
+      
+      try {
+        await sendMessage(welcomeMessage, {
+          learningStyle: userLearningStyle,
+          sessionDuration: 0
+        });
+      } catch (error) {
+        console.error('Welcome message error:', error);
       }
     };
-    sendWelcomeMessage();
-  }, [user, messages.length, isLoading, sendMessage, userLearningStyle, toast]);
+    
+    const timer = setTimeout(sendWelcomeMessage, 1000);
+    return () => clearTimeout(timer);
+  }, [user?.id, messages.length, isLoading, sendMessage, userLearningStyle]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
