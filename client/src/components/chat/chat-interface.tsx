@@ -95,12 +95,21 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
     loadUserProgress();
   }, [loadChatList, loadUserProgress]);
 
-  const handleNewChat = () => {
-    clearMessages();
-    setInput("");
-    setCurrentChatId(undefined);
-    setSelectedSubject("");
-    setSelectedTopic("");
+  const handleNewChat = async () => {
+    try {
+      await clearMessages();
+      setInput("");
+      setCurrentChatId(undefined);
+      setSelectedSubject("");
+      setSelectedTopic("");
+    } catch (error) {
+      console.error('Error clearing messages:', error);
+      toast({
+        title: "Error starting new chat",
+        description: "Please try again",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSelectChat = (chatId: number) => {

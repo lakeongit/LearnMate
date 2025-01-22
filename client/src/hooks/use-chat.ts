@@ -181,8 +181,8 @@ export function useChat(studentId: number) {
     },
   });
 
-  const clearMessages = () => {
-    endSession.mutate();
+  const clearMessages = async () => {
+    return endSession.mutateAsync();
   };
 
   // Send welcome message only once when no messages exist and not in error state
