@@ -203,9 +203,12 @@ export async function setupChat(app: Express) {
         throw new Error("AI service is not properly configured");
       }
 
-      // Call Perplexity API
+      // Call Perplexity API with timeout
       let response;
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
         response = await fetch("https://api.perplexity.ai/chat/completions", {
           method: "POST",
           headers: {
@@ -224,7 +227,10 @@ export async function setupChat(app: Express) {
             return_citations: true,
             frequency_penalty: 1.2,
           }),
+          signal: controller.signal
         });
+
+        clearTimeout(timeout);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -237,6 +243,13 @@ export async function setupChat(app: Express) {
           userId,
           content: cleanContent,
         });
+        
+        // Make sure typing indicator is turned off
+        broadcastTypingStatus(userId, false);
+        
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out - please try again');
+        }
         throw new Error(`Failed to process message: ${error.message}`);
       }
 

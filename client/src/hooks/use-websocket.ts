@@ -12,54 +12,54 @@ export function useWebSocket({ userId, onTypingStatusChange }: WebSocketHookOpti
 
   // Create WebSocket connection
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const connectWebSocket = () => {
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-      wsRef.current = ws;
+    let ws: WebSocket | null = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+
+    const connect = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
-      // Register user with WebSocket server
-      ws.send(JSON.stringify({ 
-        type: 'register', 
-        userId 
-      }));
-    };
+        reconnectAttempts = 0;
+        ws?.send(JSON.stringify({ type: 'register', userId }));
+      };
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'typing_status') {
-          onTypingStatusChange?.(data.isTyping);
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'typing_status') {
+            onTypingStatusChange?.(data.isTyping);
+          }
+        } catch (error) {
+          console.error('WebSocket message error:', error);
         }
-      } catch (error) {
-        console.error('WebSocket message parse error:', error);
-      }
+      };
+
+      ws.onclose = () => {
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          setTimeout(connect, 1000 * Math.min(reconnectAttempts, 5));
+        } else {
+          toast({
+            title: "Connection Error",
+            description: "Failed to connect to chat server after multiple attempts.",
+            variant: "destructive"
+          });
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        ws?.close();
+      };
     };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      toast({
-        title: "Connection Error",
-        description: "Attempting to reconnect to chat server...",
-        variant: "destructive"
-      });
-      setTimeout(connectWebSocket, 3000);
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket closed, attempting to reconnect...');
-      setTimeout(connectWebSocket, 3000);
-    };
+    connect();
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      ws?.close();
     };
-    };
-
-    connectWebSocket();
   }, [userId, onTypingStatusChange, toast]);
 
   return {

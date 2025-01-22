@@ -162,10 +162,12 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
     if (input.trim() && !isLoading) {
       const currentInput = input;
       setInput("");
+      let progressTimeout: NodeJS.Timeout;
+      
       try {
-        const progressTimeout = setTimeout(() => setShowProgressIndicator(true), 3000);
+        progressTimeout = setTimeout(() => setShowProgressIndicator(true), 1000);
 
-        await sendMessage(currentInput, {
+        const response = await sendMessage(currentInput, {
           subject: selectedSubject || undefined,
           topic: selectedTopic || undefined,
           learningStyle: userLearningStyle,
@@ -175,19 +177,21 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
             ?.mastery
         });
 
-        clearTimeout(progressTimeout);
-        setShowProgressIndicator(false);
-
-        loadChatList();
-        loadUserProgress();
+        if (!response) throw new Error("No response from server");
+        
+        await Promise.all([loadChatList(), loadUserProgress()]);
       } catch (error) {
+        console.error('Message error:', error);
         setInput(currentInput);
-        setShowProgressIndicator(false);
         toast({
           title: "Error sending message",
-          description: "Please try again later",
+          description: error instanceof Error ? error.message : "Please try again later",
           variant: "destructive"
         });
+      } finally {
+        clearTimeout(progressTimeout);
+        setShowProgressIndicator(false);
+        setIsAiTyping(false);
       }
     }
   };
