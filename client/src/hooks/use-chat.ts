@@ -187,15 +187,19 @@ export function useChat(studentId: number) {
   };
 
   // Send welcome message only once when no messages exist and not in error state
-  const shouldSendWelcome = !welcomeMessageRef.current && (!chatSession.messages || chatSession.messages.length === 0);
-  if (shouldSendWelcome && !isError) {
+  const shouldSendWelcome = !welcomeMessageRef.current && 
+    (!chatSession.messages || chatSession.messages.length === 0) && 
+    !isError && 
+    !sendMessage.isPending;
+
+  if (shouldSendWelcome) {
     welcomeMessageRef.current = true;
     return {
-      messages: [],
+      messages: chatSession.messages || [],
       metadata: chatSession.metadata,
       sendMessage: sendMessage.mutateAsync,
       updateLearningStyle: updateLearningStyle.mutate,
-      isLoading: false,
+      isLoading: sendMessage.isPending,
       clearMessages,
     };
   }

@@ -10,7 +10,9 @@ interface TypingStatus {
 export function setupWebSocket(server: Server) {
   const wss = new WebSocketServer({ 
     noServer: true,
-    path: '/ws'
+    path: '/ws',
+    clientTracking: true,
+    perMessageDeflate: false
   });
 
   // Handle WebSocket upgrade
