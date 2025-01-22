@@ -8,6 +8,14 @@ import { setupWebSocket } from "./websocket";
 import { createServer } from "http";
 
 export async function setupChat(app: Express) {
+  // Middleware to ensure user is authenticated
+  const ensureAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    next();
+  };
+
   // Get chat sessions list
   app.get("/api/chats/:userId/list", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
