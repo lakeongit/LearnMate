@@ -6,22 +6,33 @@ import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Message {
   id: number;
   content: string;
   role: 'user' | 'assistant';
+  subject?: string;
   createdAt: string;
 }
 
+const SUBJECTS = [
+  { id: 'math', name: 'Mathematics', emoji: '📐' },
+  { id: 'science', name: 'Science', emoji: '🔬' },
+  { id: 'english', name: 'English', emoji: '📚' },
+  { id: 'history', name: 'History', emoji: '🏛️' },
+  { id: 'cs', name: 'Computer Science', emoji: '💻' }
+];
+
 export default function ChatPage() {
   const [input, setInput] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
   const { toast } = useToast();
 
   const { data: messages, isLoading } = useQuery({
-    queryKey: ['/api/chat/messages'],
+    queryKey: ['/api/chat/messages', selectedSubject],
     queryFn: async () => {
-      const response = await fetch('/api/chat/messages');
+      const response = await fetch(`/api/chat/messages${selectedSubject ? `?subject=${selectedSubject}` : ''}`);
       if (!response.ok) {
         throw new Error('Failed to fetch messages');
       }
@@ -34,7 +45,7 @@ export default function ChatPage() {
       const response = await fetch('/api/chat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, subject: selectedSubject }),
       });
 
       if (!response.ok) {
@@ -58,12 +69,37 @@ export default function ChatPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
+    if (!selectedSubject) {
+      toast({
+        title: "Warning",
+        description: "Please select a subject first",
+        variant: "destructive",
+      });
+      return;
+    }
     sendMessage.mutate(input);
   };
 
   return (
     <div className="container mx-auto max-w-4xl p-4 h-screen flex flex-col">
       <Card className="flex-1 p-4 flex flex-col">
+        <div className="mb-4">
+          <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select subject" />
+            </SelectTrigger>
+            <SelectContent>
+              {SUBJECTS.map((subject) => (
+                <SelectItem key={subject.id} value={subject.id}>
+                  <span className="flex items-center gap-2">
+                    {subject.emoji} {subject.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <ScrollArea className="flex-1 pr-4">
           {messages?.map((message) => (
             <div
@@ -99,10 +135,10 @@ export default function ChatPage() {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
-            disabled={sendMessage.isPending}
+            placeholder={selectedSubject ? `Ask about ${SUBJECTS.find(s => s.id === selectedSubject)?.name}...` : "Select a subject first..."}
+            disabled={sendMessage.isPending || !selectedSubject}
           />
-          <Button type="submit" disabled={sendMessage.isPending}>
+          <Button type="submit" disabled={sendMessage.isPending || !selectedSubject}>
             Send
           </Button>
         </form>
