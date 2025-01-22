@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "@db";
-import { chatMessages, chatSessions, users } from "@db/schema";
+import { chatMessages, chatSessions, users, learningProgress } from "@db/schema";
 import { eq, desc, and, asc } from "drizzle-orm";
 import { logError, ErrorSeverity } from "./error-logging";
 import { messageQueue } from "./queue/message-queue";
@@ -75,7 +75,7 @@ export async function setupChat(app: Express) {
         ),
       });
 
-      res.json({ 
+      res.json({
         messages,
         metadata: {
           learningStyle: session?.context?.learningStyle || 'visual',
@@ -146,7 +146,7 @@ export async function setupChat(app: Express) {
         })
         .returning();
 
-      // Get user context for personalized responses
+      // Get user context with learning progress
       const user = await db.query.users.findFirst({
         where: eq(users.id, userId),
       });
@@ -155,30 +155,53 @@ export async function setupChat(app: Express) {
         throw new Error("User not found");
       }
 
+      // Get learning progress for context
+      const progress = await db.query.learningProgress.findMany({
+        where: eq(learningProgress.userId, userId),
+        orderBy: desc(learningProgress.updatedAt),
+        limit: 5
+      });
+
+      // Calculate appropriate difficulty level
+      const avgMastery = progress.reduce((sum, p) => sum + (p.mastery || 0), 0) / (progress.length || 1);
+      const difficultyLevel = avgMastery < 40 ? 'beginner' : avgMastery < 75 ? 'intermediate' : 'advanced';
+
+      // Enhanced system message with learning context
+      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${context?.learningStyle || user.learningStyle || 'visual'} learning.
+      Current subject: ${context?.subject || 'General'}
+      Session duration: ${context?.sessionDuration ? Math.floor(context.sessionDuration / 60) + ' minutes' : 'New session'}
+      Previous mastery: ${user.subjects?.join(', ') || 'No subjects mastered yet'}
+      Current mastery level: ${avgMastery.toFixed(1)}%
+      Recommended difficulty: ${difficultyLevel}
+
+      You are actively teaching ${subject}. Follow these enhanced guidelines:
+
+      1. Match content to the student's ${difficultyLevel} level
+      2. Use ${context?.learningStyle || user.learningStyle || 'visual'} learning techniques
+      3. Break concepts into digestible chunks
+      4. Include interactive elements like:
+         - Practice problems
+         - Knowledge checks
+         - Real-world examples
+      5. Cite academic sources
+      6. Use markdown for formatting
+      7. Track concept understanding
+      8. Provide step-by-step explanations
+      9. Include analogies and metaphors
+      10. End with a quick comprehension check
+
+      Format responses with:
+      - Key concepts at the top
+      - Main explanation
+      - Practice/Interactive section
+      - Comprehension check
+      - Sources`;
+
+
       // Check for API key
       if (!process.env.PERPLEXITY_API_KEY) {
         throw new Error("AI service is not properly configured");
       }
-
-      // Prepare system message
-      const systemMessage = `You are an educational AI tutor helping a grade ${user.grade || 'unknown'} student who prefers ${context?.learningStyle || user.learningStyle || 'visual'} learning.
-      Current subject: ${context?.subject || 'General'}
-      Session duration: ${context?.sessionDuration ? Math.floor(context.sessionDuration / 60) + ' minutes' : 'New session'}
-      Previous mastery: ${user.subjects?.join(', ') || 'No subjects mastered yet'} 
-      You are actively teaching ${subject}. Your role is to:
-
-      1. Provide academically rigorous, well-researched responses
-      2. Include citations and references to academic sources
-      3. Break down complex academic concepts into understandable parts
-      4. Use formal academic language while maintaining clarity
-      5. Incorporate ${context?.learningStyle || user.learningStyle || 'visual'} learning techniques
-      6. Follow academic writing standards
-      7. Provide step-by-step explanations with examples
-      8. Include practice exercises that reinforce academic concepts
-      9. Use markdown formatting for better organization
-      10. Guide students through academic reasoning
-
-      Remember: Every response should be academically sound and supported by reliable sources.`;
 
       // Call Perplexity API
       let response;
@@ -247,6 +270,22 @@ export async function setupChat(app: Express) {
         })
         .returning();
 
+      // After getting AI response, analyze it for quality
+      const responseQuality = analyzeResponseQuality(formattedResponse);
+      if (!responseQuality.meetsStandards) {
+        // Log quality issues for improvement
+        logError(new Error("Response quality below threshold"), ErrorSeverity.WARN, {
+          issues: responseQuality.issues,
+          userId,
+          subject
+        });
+      }
+
+      // Update learning progress if enough interaction
+      if (context?.sessionDuration > 300) { // 5 minutes
+        await updateLearningProgress(userId, subject, responseQuality.comprehensionLevel);
+      }
+
       // Broadcast that AI has finished typing
       broadcastTypingStatus(userId, false);
 
@@ -269,7 +308,7 @@ export async function setupChat(app: Express) {
       // Mark current active session as completed
       await db
         .update(chatSessions)
-        .set({ 
+        .set({
           status: 'completed',
           endTime: new Date()
         })
@@ -364,4 +403,76 @@ export async function setupChat(app: Express) {
   });
 
   return server;
+}
+
+// Helper function to analyze response quality
+function analyzeResponseQuality(response: string) {
+  const qualityMetrics = {
+    hasCitations: /###\s*Sources:/i.test(response),
+    hasInteractiveElements: /Practice:|Exercise:|Try this:/i.test(response),
+    hasComprehensionCheck: /Understanding Check:|Quiz:|Check your knowledge:/i.test(response),
+    hasStepByStep: /Step \d|^\d\.|First,|Second,|Finally,/im.test(response),
+    hasExamples: /Example:|For instance:|Consider this:/i.test(response)
+  };
+
+  const meetsStandards = Object.values(qualityMetrics).filter(Boolean).length >= 4;
+  const comprehensionLevel = calculateComprehensionLevel(response);
+
+  return {
+    meetsStandards,
+    issues: Object.entries(qualityMetrics)
+      .filter(([, passes]) => !passes)
+      .map(([issue]) => issue),
+    comprehensionLevel
+  };
+}
+
+// Helper function to calculate comprehension level
+function calculateComprehensionLevel(response: string): number {
+  // Basic heuristic based on response complexity
+  const complexityFactors = {
+    technicalTerms: (response.match(/\b(theorem|algorithm|coefficient|hypothesis|derivative)\b/gi) || []).length,
+    explanationDepth: (response.match(/because|therefore|consequently|thus/gi) || []).length,
+    interactivity: (response.match(/try|practice|exercise|example/gi) || []).length,
+  };
+
+  // Scale from 0-100
+  return Math.min(
+    100,
+    (complexityFactors.technicalTerms * 10 +
+      complexityFactors.explanationDepth * 5 +
+      complexityFactors.interactivity * 15)
+  );
+}
+
+// Helper function to update learning progress
+async function updateLearningProgress(userId: number, subject: string, comprehensionLevel: number) {
+  const [existingProgress] = await db
+    .select()
+    .from(learningProgress)
+    .where(
+      and(
+        eq(learningProgress.userId, userId),
+        eq(learningProgress.subject, subject)
+      )
+    );
+
+  if (existingProgress) {
+    await db
+      .update(learningProgress)
+      .set({
+        mastery: Math.round((existingProgress.mastery + comprehensionLevel) / 2),
+        updatedAt: new Date()
+      })
+      .where(eq(learningProgress.id, existingProgress.id));
+  } else {
+    await db
+      .insert(learningProgress)
+      .values({
+        userId,
+        subject,
+        mastery: comprehensionLevel,
+        updatedAt: new Date()
+      });
+  }
 }

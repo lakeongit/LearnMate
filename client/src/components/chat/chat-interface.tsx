@@ -3,7 +3,7 @@ import { useChat } from "@/hooks/use-chat";
 import { MessageBubble } from "./message-bubble";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, BookOpen, Bot, User, Timer } from "lucide-react";
+import { Send, BookOpen, Bot, User, Timer, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import type { User as UserType } from "@db/schema";
@@ -18,6 +18,7 @@ import { AiTutorExplainer } from "./ai-tutor-explainer";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { TypingIndicator } from "./typing-indicator";
 import { ChatList } from "./chat-list";
+import { Progress } from "@/components/ui/progress";
 
 interface ChatInterfaceProps {
   user: UserType;
@@ -40,6 +41,12 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [chats, setChats] = useState<Array<{id: number; title: string; updatedAt: string}>>([]);
   const [currentChatId, setCurrentChatId] = useState<number>();
+  const [showProgressIndicator, setShowProgressIndicator] = useState(false);
+  const [userProgress, setUserProgress] = useState<{
+    subject: string;
+    mastery: number;
+    lastUpdated: string;
+  }[]>([]);
 
   const { 
     messages, 
@@ -78,8 +85,17 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
       });
   };
 
+  // Load user progress
+  const loadUserProgress = () => {
+    fetch(`/api/learning-progress/${user.id}`)
+      .then(res => res.json())
+      .then(data => setUserProgress(data))
+      .catch(error => console.error('Error loading progress:', error));
+  };
+
   useEffect(() => {
     loadChatList();
+    loadUserProgress();
   }, [user.id]);
 
   // Handle creating a new chat
@@ -99,7 +115,6 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
       .then(res => res.json())
       .then(data => {
         if (data.messages) {
-          // Update the messages through the chat hook
           data.messages.forEach((msg: any) => {
             if (msg.role === 'user') {
               sendMessage(msg.content, msg.context);
@@ -144,19 +159,29 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
       const currentInput = input;
       setInput("");
       try {
+        const progressTimeout = setTimeout(() => setShowProgressIndicator(true), 3000);
+
         await sendMessage(currentInput, {
           subject: selectedSubject || undefined,
           topic: selectedTopic || undefined,
           learningStyle: userLearningStyle,
-          sessionDuration: studyTimer
+          sessionDuration: studyTimer,
+          previousProgress: userProgress
+            .find(p => p.subject === selectedSubject)
+            ?.mastery
         });
-        // Refresh chat list after sending a message
+
+        clearTimeout(progressTimeout);
+        setShowProgressIndicator(false);
+
         loadChatList();
+        loadUserProgress();
       } catch (error) {
-        setInput(currentInput); // Restore input if sending fails
+        setInput(currentInput);
+        setShowProgressIndicator(false);
         toast({
           title: "Error sending message",
-          description: "Please try logging out and back in",
+          description: "Please try again later",
           variant: "destructive"
         });
       }
@@ -287,13 +312,24 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
           </div>
         </div>
 
-        <div className="p-2 border-b">
-          <Input
-            placeholder="Search messages..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="max-w-sm mx-auto"
-          />
+        <div className="p-2 border-b bg-muted/5">
+          <div className="flex items-center gap-4">
+            {selectedSubject && userProgress.find(p => p.subject === selectedSubject) && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Current mastery:</span>
+                <Progress 
+                  value={userProgress.find(p => p.subject === selectedSubject)?.mastery} 
+                  className="w-[100px]"
+                />
+              </div>
+            )}
+            {showProgressIndicator && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Analyzing your question...</span>
+              </div>
+            )}
+          </div>
         </div>
 
         <ScrollArea className="flex-1 p-6">
@@ -321,27 +357,60 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
           </div>
         </ScrollArea>
 
-        <form onSubmit={handleSubmit} className="p-4 border-t bg-background flex gap-3">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              selectedSubject
-                ? `Ask about ${selectedSubject.toLowerCase()}${
-                    selectedTopic ? ` (${selectedTopic})` : ''
-                  }...`
-                : "Ask your AI tutor anything..."
-            }
-            disabled={isLoading}
-            className="flex-1 bg-muted/50"
-          />
-          <Button type="submit" disabled={isLoading} size="icon">
-            {isLoading ? (
-              <span className="animate-spin">⌛</span>
-            ) : (
-              <Send className="h-4 w-4" />
+        <form onSubmit={handleSubmit} className="p-4 border-t bg-background">
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-3">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={
+                  selectedSubject
+                    ? `Ask about ${selectedSubject.toLowerCase()}${
+                        selectedTopic ? ` (${selectedTopic})` : ''
+                      }...`
+                    : "Ask your AI tutor anything..."
+                }
+                disabled={isLoading}
+                className="flex-1 bg-muted/50"
+              />
+              <Button type="submit" disabled={isLoading} size="icon">
+                {isLoading ? (
+                  <span className="animate-spin">⌛</span>
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+
+            {selectedSubject && !input && (
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setInput(`Can you explain the basic concepts of ${selectedSubject}?`)}
+                  className="text-xs"
+                >
+                  ✨ Basic concepts
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setInput(`Give me some practice problems for ${selectedSubject}.`)}
+                  className="text-xs"
+                >
+                  📝 Practice problems
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setInput(`What are some real-world applications of ${selectedSubject}?`)}
+                  className="text-xs"
+                >
+                  🌍 Real-world examples
+                </Button>
+              </div>
             )}
-          </Button>
+          </div>
         </form>
       </div>
     </div>
