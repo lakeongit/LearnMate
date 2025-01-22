@@ -40,7 +40,18 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
     // Load chat list
     fetch(`/api/chats/${user.id}/list`)
       .then(res => res.json())
-      .then(data => setChats(data));
+      .then(data => {
+        if (Array.isArray(data)) {
+          setChats(data);
+        } else {
+          setChats([]);
+          console.error('Chat list data is not an array:', data);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching chat list:', error);
+        setChats([]);
+      });
   }, [user.id]);
 
   const handleNewChat = () => {
