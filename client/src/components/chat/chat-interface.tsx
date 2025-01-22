@@ -55,7 +55,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   }, [user.id]);
 
   const handleNewChat = () => {
-    setMessages([]);
+    clearMessages();
     setCurrentChatId(undefined);
   };
 
