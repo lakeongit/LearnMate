@@ -89,7 +89,10 @@ export function useChat(studentId: number) {
 
         const res = await fetch(`/api/chats/${studentId}/messages`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json" 
+          },
           body: JSON.stringify({ 
             content,
             context: {
@@ -100,8 +103,14 @@ export function useChat(studentId: number) {
           credentials: "include",
         });
 
+        const contentType = res.headers.get("content-type");
+        if (!contentType?.includes("application/json")) {
+          throw new Error("Server returned non-JSON response");
+        }
+
         if (!res.ok) {
-          throw new Error(await res.text());
+          const errorText = await res.text();
+          throw new Error(errorText || "Failed to send message");
         }
 
         const data = await res.json();
@@ -128,9 +137,14 @@ export function useChat(studentId: number) {
             { role: 'user', content, status: 'error' as const },
           ],
         }));
+        console.error("Error sending message:", error); //Added for better debugging
         throw error;
       }
     },
+    onError: (err, variables, context) => {
+      console.error("sendMessage mutation error:", err);
+      toast({ title: "Error sending message", description: err.message });
+    }
   });
 
   const updateLearningStyle = useMutation({
