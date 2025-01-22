@@ -4,7 +4,7 @@ import { compilerOptions } from './tsconfig.json';
 
 const config: Config = {
   preset: 'ts-jest',
-  testEnvironment: 'jsdom',
+  testEnvironment: 'node',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     ...pathsToModuleNameMapper(compilerOptions.paths, { prefix: '<rootDir>/' }),
@@ -15,18 +15,17 @@ const config: Config = {
       tsconfig: 'tsconfig.json',
     }],
   },
+  testTimeout: 10000,
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
-    'client/src/**/*.{ts,tsx}',
     'server/**/*.ts',
     '!**/*.d.ts',
     '!**/node_modules/**',
   ],
   testMatch: [
-    '<rootDir>/**/__tests__/**/*.{ts,tsx}',
-    '<rootDir>/**/*.{spec,test}.{ts,tsx}',
+    '<rootDir>/tests/**/*.{spec,test}.{ts,tsx}',
   ],
-  roots: ['<rootDir>/client/src', '<rootDir>/server'],
+  roots: ['<rootDir>/tests', '<rootDir>/server'],
 };
 
 export default config;

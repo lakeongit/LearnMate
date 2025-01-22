@@ -1,5 +1,23 @@
 import { http, HttpResponse } from 'msw';
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  status: 'pending' | 'delivered' | 'error';
+}
+
+interface ChatMetadata {
+  learningStyle: string;
+  startTime: number;
+  subject?: string;
+  topic?: string;
+}
+
+interface ChatResponse {
+  messages: ChatMessage[];
+  metadata: ChatMetadata;
+}
+
 export const handlers = [
   // Auth endpoints
   http.post('/api/login', () => {
@@ -18,7 +36,7 @@ export const handlers = [
 
   // Chat endpoints
   http.get('/api/chats/:userId', () => {
-    return HttpResponse.json({
+    return HttpResponse.json<ChatResponse>({
       messages: [],
       metadata: {
         learningStyle: 'visual',
@@ -28,8 +46,8 @@ export const handlers = [
   }),
 
   http.post('/api/chats/:userId/messages', async ({ request }) => {
-    const body = await request.json();
-    return HttpResponse.json({
+    const body = await request.json() as { content: string; context?: Record<string, unknown> };
+    return HttpResponse.json<ChatResponse>({
       messages: [
         {
           role: 'user',
@@ -80,8 +98,8 @@ export const handlers = [
   }),
 
   http.put('/api/chats/:userId/learning-style', async ({ request }) => {
-    const body = await request.json();
-    return HttpResponse.json({
+    const body = await request.json() as { learningStyle: string };
+    return HttpResponse.json<ChatResponse>({
       messages: [],
       metadata: {
         learningStyle: body.learningStyle,
@@ -91,7 +109,7 @@ export const handlers = [
   }),
 
   http.post('/api/chats/:userId/end-session', () => {
-    return HttpResponse.json({
+    return HttpResponse.json<ChatResponse>({
       messages: [],
       metadata: {
         learningStyle: 'visual',
