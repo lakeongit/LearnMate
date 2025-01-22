@@ -289,5 +289,6 @@ const filteredMessages = messages?.filter(message =>
         </Button>
       </form>
     </div>
+    </div>
   );
 }
