@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "./use-toast";
 import type { MessageStatusType } from "@/components/chat/message-status";
+import type { ChatSession } from "@db/schema";
+import React from 'react';
 
 type Message = {
   id?: number;
@@ -15,19 +17,7 @@ type Message = {
   };
 };
 
-type ChatSession = {
-  messages: Message[];
-  metadata: {
-    subject?: string;
-    topic?: string;
-    learningStyle: string;
-    startTime: number;
-    endTime?: number;
-    mastery?: number;
-  };
-};
-
-const DEFAULT_SESSION: ChatSession = {
+const DEFAULT_SESSION = {
   messages: [],
   metadata: {
     learningStyle: 'visual',
@@ -35,11 +25,12 @@ const DEFAULT_SESSION: ChatSession = {
   },
 };
 
-let welcomeMessageSent = false;
-
 export function useChat(studentId: number) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Track if welcome message has been sent in the current session
+  const welcomeMessageRef = React.useRef(false);
 
   const { data: chatSession = DEFAULT_SESSION, isError } = useQuery<ChatSession>({
     queryKey: ["/api/chats", studentId],
@@ -55,9 +46,9 @@ export function useChat(studentId: number) {
 
         const data = await res.json();
 
-        // Reset welcome message flag when loading a new session
+        // Reset welcome message ref when loading a new session
         if (!data.messages?.length) {
-          welcomeMessageSent = false;
+          welcomeMessageRef.current = false;
         }
 
         return {
@@ -139,23 +130,6 @@ export function useChat(studentId: number) {
         throw error;
       }
     },
-    onSuccess: (newSession: ChatSession) => {
-      queryClient.setQueryData<ChatSession>(["/api/chats", studentId], {
-        ...newSession,
-        metadata: {
-          ...DEFAULT_SESSION.metadata,
-          ...newSession.metadata,
-        },
-      });
-    },
-    onError: (error: Error) => {
-      console.error("Chat error:", error);
-      toast({
-        title: "Error sending message",
-        description: error.message || "Failed to send message. Please try again.",
-        variant: "destructive",
-      });
-    },
   });
 
   const updateLearningStyle = useMutation({
@@ -193,7 +167,7 @@ export function useChat(studentId: number) {
       });
 
       if (!res.ok) throw new Error(await res.text());
-      welcomeMessageSent = false;
+      welcomeMessageRef.current = false;
       return res.json();
     },
     onSuccess: () => {
@@ -211,15 +185,15 @@ export function useChat(studentId: number) {
     endSession.mutate();
   };
 
-  // Only send welcome message once when no messages exist
-  const shouldSendWelcome = !welcomeMessageSent && (!chatSession.messages || chatSession.messages.length === 0);
+  // Send welcome message only once when no messages exist and not in error state
+  const shouldSendWelcome = !welcomeMessageRef.current && (!chatSession.messages || chatSession.messages.length === 0);
   if (shouldSendWelcome && !isError) {
-    welcomeMessageSent = true;
+    welcomeMessageRef.current = true;
     return {
       messages: [],
       metadata: chatSession.metadata,
-      sendMessage,
-      updateLearningStyle,
+      sendMessage: sendMessage.mutateAsync,
+      updateLearningStyle: updateLearningStyle.mutate,
       isLoading: false,
       clearMessages,
     };
@@ -228,9 +202,8 @@ export function useChat(studentId: number) {
   return {
     messages: chatSession.messages,
     metadata: chatSession.metadata,
-    sendMessage: (content: string, context?: Message["context"]) => 
-      sendMessage.mutateAsync({ content, context }),
-    updateLearningStyle: (style: string) => updateLearningStyle.mutate(style),
+    sendMessage: sendMessage.mutateAsync,
+    updateLearningStyle: updateLearningStyle.mutate,
     isLoading: sendMessage.isPending,
     clearMessages,
   };

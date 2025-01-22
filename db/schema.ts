@@ -14,6 +14,39 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Chat sessions for context tracking
+export const chatSessions = pgTable("chat_sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  title: text("title").default('New Chat').notNull(),
+  status: text("status").default('active'),
+  context: jsonb("context").default({}),
+  startTime: timestamp("start_time", { withTimezone: true }).defaultNow(),
+  endTime: timestamp("end_time", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  userStatusIdx: index("chat_sessions_user_status_idx").on(table.userId, table.status)
+}));
+
+// Chat messages for AI tutor
+export const chatMessages = pgTable("chat_messages", {
+  id: serial("id").primaryKey(),
+  chatSessionId: integer("chat_session_id").references(() => chatSessions.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  role: text("role").notNull(), // 'user' or 'assistant'
+  status: text("status").default('pending'),
+  subject: text("subject"),
+  context: jsonb("context").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  sessionIdx: index("chat_messages_session_idx").on(table.chatSessionId),
+  userCreatedIdx: index("chat_messages_user_created_idx").on(table.userId, table.createdAt),
+  subjectIdx: index("chat_messages_subject_idx").on(table.subject)
+}));
+
 // Learning goals table
 export const learningGoals = pgTable("learning_goals", {
   id: serial("id").primaryKey(),
@@ -30,16 +63,6 @@ export const learningGoals = pgTable("learning_goals", {
 }, (table) => ({
   userStatusIdx: index("learning_goals_user_status_idx").on(table.userId, table.status)
 }));
-
-// Chat sessions for context tracking
-export const chatSessions = pgTable("chat_sessions", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  startTime: timestamp("start_time").defaultNow().notNull(),
-  endTime: timestamp("end_time"),
-  context: jsonb("context").default({}), // Stores session context like current topic, learning preferences
-  status: text("status").default('active').notNull(), // active, completed, interrupted
-});
 
 // Learning units table
 export const learningUnits = pgTable("learning_units", {
@@ -73,21 +96,6 @@ export const contentModules = pgTable("content_modules", {
   unitOrderIdx: index("content_modules_unit_order_idx").on(table.unitId, table.order)
 }));
 
-// Chat messages for AI tutor
-export const chatMessages = pgTable("chat_messages", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  chatSessionId: integer("chat_session_id").references(() => chatSessions.id),
-  content: text("content").notNull(),
-  role: text("role").notNull(), // 'user' or 'assistant'
-  status: text("status"), // 'sending', 'delivered', 'error'
-  subject: text("subject"),
-  context: jsonb("context"), // Stores learning style, session duration, etc.
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => ({
-  userCreatedIdx: index("chat_messages_user_created_idx").on(table.userId, table.createdAt),
-  subjectIdx: index("chat_messages_subject_idx").on(table.subject)
-}));
 
 // Learning progress tracking
 export const learningProgress = pgTable("learning_progress", {
@@ -126,11 +134,26 @@ export const motivationMetrics = pgTable("motivation_metrics", {
   date: timestamp("date").defaultNow().notNull(),
 });
 
-// Create schemas and types for all tables
+// Create schemas and types
+export const insertChatSessionSchema = createInsertSchema(chatSessions);
+export const selectChatSessionSchema = createSelectSchema(chatSessions);
+export type ChatSession = typeof chatSessions.$inferSelect;
+export type NewChatSession = typeof chatSessions.$inferInsert;
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages);
+export const selectChatMessageSchema = createSelectSchema(chatMessages);
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type NewChatMessage = typeof chatMessages.$inferInsert;
+
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+export const insertLearningGoalSchema = createInsertSchema(learningGoals);
+export const selectLearningGoalSchema = createSelectSchema(learningGoals);
+export type LearningGoal = typeof learningGoals.$inferSelect;
+export type NewLearningGoal = typeof learningGoals.$inferInsert;
 
 export const insertUnitSchema = createInsertSchema(learningUnits);
 export const selectUnitSchema = createSelectSchema(learningUnits);
@@ -161,20 +184,3 @@ export const insertMotivationMetricSchema = createInsertSchema(motivationMetrics
 export const selectMotivationMetricSchema = createSelectSchema(motivationMetrics);
 export type MotivationMetric = typeof motivationMetrics.$inferSelect;
 export type NewMotivationMetric = typeof motivationMetrics.$inferInsert;
-
-// Add new schema types for chat messages
-export const insertChatMessageSchema = createInsertSchema(chatMessages);
-export const selectChatMessageSchema = createSelectSchema(chatMessages);
-export type ChatMessage = typeof chatMessages.$inferSelect;
-export type NewChatMessage = typeof chatMessages.$inferInsert;
-
-// Add new schema types for learning goals and sessions
-export const insertLearningGoalSchema = createInsertSchema(learningGoals);
-export const selectLearningGoalSchema = createSelectSchema(learningGoals);
-export type LearningGoal = typeof learningGoals.$inferSelect;
-export type NewLearningGoal = typeof learningGoals.$inferInsert;
-
-export const insertChatSessionSchema = createInsertSchema(chatSessions);
-export const selectChatSessionSchema = createSelectSchema(chatSessions);
-export type ChatSession = typeof chatSessions.$inferSelect;
-export type NewChatSession = typeof chatSessions.$inferInsert;
